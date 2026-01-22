@@ -1,0 +1,11 @@
+# Node / PHP ignores
+node_modules/
+vendor/
+.env
+/.env.local
+/storage/
+uploads/tmp/
+*.log
+.DS_Store
+.vscode/
+.idea/

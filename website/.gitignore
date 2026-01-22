@@ -1,0 +1,43 @@
+# =============================================================================
+# TIREDOFDOINTM - Git Ignore
+# =============================================================================
+
+# Environment files (NEVER commit these!)
+config/.env
+.env
+.env.local
+.env.*.local
+
+# Storage
+storage/logs/*
+storage/cache/*
+storage/sessions/*
+!storage/logs/.gitkeep
+!storage/cache/.gitkeep
+!storage/sessions/.gitkeep
+
+# Uploads
+public/uploads/*
+!public/uploads/.gitkeep
+!public/uploads/temp/.gitkeep
+
+# Vendor (composer packages)
+vendor/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# Temp files
+*.tmp
+*.temp
