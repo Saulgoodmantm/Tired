@@ -44,6 +44,7 @@ use App\Utils\Database;
 use App\Utils\Auth;
 use App\Utils\Router;
 use App\Utils\View;
+use App\Utils\Gate;
 
 // Initialize database
 Database::init($config['database']);
@@ -51,10 +52,14 @@ Database::init($config['database']);
 // Initialize auth
 Auth::init();
 
+// Initialize gate system
+Gate::init($config['gate']);
+
 // Initialize view system
 View::setPath(BASE_PATH . '/views');
 View::share('config', $config);
 View::share('user', Auth::user());
+View::share('gatePassed', Gate::hasPassed());
 
 // =============================================================================
 // MIDDLEWARE
@@ -879,6 +884,141 @@ Router::get('/dashboard/messages', function() {
     ], 'dashboard');
 }, ['auth', 'admin']);
 
+// Dashboard - Calendar
+Router::get('/dashboard/calendar', function() {
+    View::display('dashboard/calendar', [
+        'pageTitle' => 'Calendar',
+        'activePage' => 'calendar',
+    ], 'dashboard');
+}, ['auth', 'admin']);
+
+// Dashboard - Contracts
+Router::get('/dashboard/contracts', function() {
+    View::display('dashboard/contracts', [
+        'pageTitle' => 'Contracts',
+        'activePage' => 'contracts',
+    ], 'dashboard');
+}, ['auth', 'admin']);
+
+// Dashboard - Billing
+Router::get('/dashboard/billing', function() {
+    $payments = [];
+    $stats = ['total_revenue' => 0, 'pending' => 0, 'refunded' => 0];
+    try {
+        $payments = Database::query(
+            "SELECT p.*, b.service_type, u.email as client_email
+             FROM payments p
+             LEFT JOIN bookings b ON p.booking_id = b.id
+             LEFT JOIN users u ON b.user_id = u.id
+             ORDER BY p.created_at DESC
+             LIMIT 100"
+        );
+        $stats = Database::queryOne(
+            "SELECT 
+                COALESCE(SUM(CASE WHEN status = 'succeeded' THEN amount ELSE 0 END), 0) as total_revenue,
+                COALESCE(SUM(CASE WHEN status = 'pending' THEN amount ELSE 0 END), 0) as pending,
+                COALESCE(SUM(CASE WHEN status = 'refunded' THEN refunded_amount ELSE 0 END), 0) as refunded
+             FROM payments"
+        );
+    } catch (Exception $e) {
+        // Table might not exist yet
+    }
+
+    View::display('dashboard/billing', [
+        'pageTitle' => 'Billing',
+        'activePage' => 'billing',
+        'payments' => $payments,
+        'stats' => $stats,
+    ], 'dashboard');
+}, ['auth', 'admin']);
+
+// Dashboard - Analytics
+Router::get('/dashboard/analytics', function() {
+    $stats = [];
+    try {
+        // Get various analytics
+        $stats['bookings_by_month'] = Database::query(
+            "SELECT DATE_TRUNC('month', date_start) as month, COUNT(*) as count
+             FROM bookings WHERE date_start >= NOW() - INTERVAL '12 months'
+             GROUP BY month ORDER BY month"
+        );
+        $stats['revenue_by_month'] = Database::query(
+            "SELECT DATE_TRUNC('month', created_at) as month, SUM(amount) as total
+             FROM payments WHERE status = 'succeeded' AND created_at >= NOW() - INTERVAL '12 months'
+             GROUP BY month ORDER BY month"
+        );
+        $stats['top_services'] = Database::query(
+            "SELECT service_type, COUNT(*) as count, SUM(total_price) as revenue
+             FROM bookings WHERE status IN ('completed', 'paid')
+             GROUP BY service_type ORDER BY count DESC"
+        );
+    } catch (Exception $e) {
+        // Tables might not exist yet
+    }
+
+    View::display('dashboard/analytics', [
+        'pageTitle' => 'Analytics',
+        'activePage' => 'analytics',
+        'stats' => $stats,
+    ], 'dashboard');
+}, ['auth', 'admin']);
+
+// Dashboard - Locations
+Router::get('/dashboard/locations', function() {
+    $locations = [];
+    try {
+        $locations = Database::query("SELECT * FROM locations ORDER BY name");
+    } catch (Exception $e) {
+        // Table might not exist yet
+    }
+
+    View::display('dashboard/locations', [
+        'pageTitle' => 'Locations',
+        'activePage' => 'locations',
+        'locations' => $locations,
+    ], 'dashboard');
+}, ['auth', 'admin']);
+
+// Dashboard - Models
+Router::get('/dashboard/models', function() {
+    $models = [];
+    try {
+        $models = Database::query(
+            "SELECT m.*, u.email 
+             FROM models m 
+             LEFT JOIN users u ON m.user_id = u.id 
+             ORDER BY m.name"
+        );
+    } catch (Exception $e) {
+        // Table might not exist yet
+    }
+
+    View::display('dashboard/models', [
+        'pageTitle' => 'Models',
+        'activePage' => 'models',
+        'models' => $models,
+    ], 'dashboard');
+}, ['auth', 'admin']);
+
+// Dashboard - Pricing
+Router::get('/dashboard/pricing', function() {
+    $packages = [];
+    $addons = [];
+    try {
+        $packages = Database::query("SELECT * FROM pricing_packages ORDER BY sort_order");
+        $addons = Database::query("SELECT * FROM pricing_addons ORDER BY name");
+    } catch (Exception $e) {
+        // Tables might not exist yet
+    }
+
+    View::display('dashboard/pricing', [
+        'pageTitle' => 'Pricing',
+        'activePage' => 'pricing',
+        'packages' => $packages,
+        'addons' => $addons,
+    ], 'dashboard');
+}, ['auth', 'admin']);
+
 // Dashboard - Settings (Admin only)
 Router::get('/dashboard/settings', function() {
     if (!Auth::isAdmin()) {
@@ -1152,6 +1292,343 @@ Router::get('/api/server/logs', function() {
     $server = new \App\Services\ServerService();
     Router::json(['content' => $server->getLogs($type, $lines)]);
 }, ['auth']);
+
+// =============================================================================
+// LOCATIONS API
+// =============================================================================
+
+Router::get('/api/locations', function() {
+    if (!Auth::isStaff()) {
+        Router::json(['error' => 'Unauthorized'], 403);
+        return;
+    }
+    
+    $locations = Database::query("SELECT * FROM locations ORDER BY name");
+    Router::json($locations);
+}, ['auth']);
+
+Router::get('/api/locations/{id}', function($id) {
+    if (!Auth::isStaff()) {
+        Router::json(['error' => 'Unauthorized'], 403);
+        return;
+    }
+    
+    $location = Database::queryRow("SELECT * FROM locations WHERE id = ?", [$id]);
+    if (!$location) {
+        Router::json(['error' => 'Location not found'], 404);
+        return;
+    }
+    Router::json($location);
+}, ['auth']);
+
+Router::post('/api/locations', function() {
+    if (!Auth::isAdmin()) {
+        Router::json(['error' => 'Unauthorized'], 403);
+        return;
+    }
+    
+    $data = json_decode(file_get_contents('php://input'), true);
+    
+    $id = Database::insert('locations', [
+        'name' => $data['name'],
+        'address' => $data['address'] ?? null,
+        'latitude' => $data['latitude'] ?? null,
+        'longitude' => $data['longitude'] ?? null,
+        'description' => $data['description'] ?? null,
+        'notes' => $data['notes'] ?? null,
+        'is_active' => $data['is_active'] ?? true,
+        'created_at' => date('Y-m-d H:i:s'),
+        'updated_at' => date('Y-m-d H:i:s'),
+    ]);
+    
+    Router::json(['success' => true, 'id' => $id]);
+}, ['auth', 'csrf']);
+
+Router::put('/api/locations/{id}', function($id) {
+    if (!Auth::isAdmin()) {
+        Router::json(['error' => 'Unauthorized'], 403);
+        return;
+    }
+    
+    $data = json_decode(file_get_contents('php://input'), true);
+    
+    Database::update('locations', [
+        'name' => $data['name'],
+        'address' => $data['address'] ?? null,
+        'latitude' => $data['latitude'] ?? null,
+        'longitude' => $data['longitude'] ?? null,
+        'description' => $data['description'] ?? null,
+        'notes' => $data['notes'] ?? null,
+        'is_active' => $data['is_active'] ?? true,
+        'updated_at' => date('Y-m-d H:i:s'),
+    ], ['id' => $id]);
+    
+    Router::json(['success' => true]);
+}, ['auth', 'csrf']);
+
+Router::delete('/api/locations/{id}', function($id) {
+    if (!Auth::isAdmin()) {
+        Router::json(['error' => 'Unauthorized'], 403);
+        return;
+    }
+    
+    Database::delete('locations', ['id' => $id]);
+    Router::json(['success' => true]);
+}, ['auth', 'csrf']);
+
+// =============================================================================
+// MODELS API
+// =============================================================================
+
+Router::post('/api/models/promote', function() {
+    if (!Auth::isAdmin()) {
+        Router::json(['error' => 'Unauthorized'], 403);
+        return;
+    }
+    
+    $data = json_decode(file_get_contents('php://input'), true);
+    $userId = (int) ($data['user_id'] ?? 0);
+    
+    if (!$userId) {
+        Router::json(['error' => 'User ID required'], 400);
+        return;
+    }
+    
+    // Get model role ID
+    $modelRole = Database::queryRow("SELECT id FROM roles WHERE name = 'model'");
+    if (!$modelRole) {
+        Router::json(['error' => 'Model role not found'], 500);
+        return;
+    }
+    
+    Database::update('users', ['role_id' => $modelRole['id']], ['id' => $userId]);
+    Router::json(['success' => true]);
+}, ['auth', 'csrf']);
+
+Router::post('/api/models/invite', function() {
+    if (!Auth::isAdmin()) {
+        Router::json(['error' => 'Unauthorized'], 403);
+        return;
+    }
+    
+    $data = json_decode(file_get_contents('php://input'), true);
+    $email = $data['email'] ?? '';
+    $name = $data['name'] ?? '';
+    
+    if (!$email) {
+        Router::json(['error' => 'Email required'], 400);
+        return;
+    }
+    
+    // Check if user already exists
+    $existing = Database::queryRow("SELECT id FROM users WHERE email = ?", [$email]);
+    if ($existing) {
+        Router::json(['error' => 'User with this email already exists'], 400);
+        return;
+    }
+    
+    // Get model role ID
+    $modelRole = Database::queryRow("SELECT id FROM roles WHERE name = 'model'");
+    
+    // Create user with model role
+    $userId = Database::insert('users', [
+        'email' => $email,
+        'username' => $name ?: null,
+        'role_id' => $modelRole['id'],
+        'is_verified' => false,
+        'created_at' => date('Y-m-d H:i:s'),
+    ]);
+    
+    // Send invitation email
+    try {
+        $emailService = new \App\Services\EmailService();
+        $emailService->send(
+            $email,
+            'You\'ve been invited to join TiredProduction',
+            'model_invitation',
+            ['name' => $name, 'message' => $data['message'] ?? '']
+        );
+    } catch (Exception $e) {
+        // Log but don't fail
+    }
+    
+    Router::json(['success' => true, 'user_id' => $userId]);
+}, ['auth', 'csrf']);
+
+Router::delete('/api/models/{id}', function($id) {
+    if (!Auth::isAdmin()) {
+        Router::json(['error' => 'Unauthorized'], 403);
+        return;
+    }
+    
+    // Get registered role ID
+    $registeredRole = Database::queryRow("SELECT id FROM roles WHERE name = 'registered'");
+    if (!$registeredRole) {
+        Router::json(['error' => 'Registered role not found'], 500);
+        return;
+    }
+    
+    // Demote to registered user
+    Database::update('users', ['role_id' => $registeredRole['id']], ['id' => $id]);
+    Router::json(['success' => true]);
+}, ['auth', 'csrf']);
+
+// =============================================================================
+// PRICING API
+// =============================================================================
+
+Router::get('/api/pricing/packages', function() {
+    $packages = Database::query("SELECT * FROM pricing_packages ORDER BY sort_order");
+    Router::json($packages);
+});
+
+Router::get('/api/pricing/packages/{id}', function($id) {
+    $package = Database::queryRow("SELECT * FROM pricing_packages WHERE id = ?", [$id]);
+    if (!$package) {
+        Router::json(['error' => 'Package not found'], 404);
+        return;
+    }
+    Router::json($package);
+});
+
+Router::post('/api/pricing/packages', function() {
+    if (!Auth::isAdmin()) {
+        Router::json(['error' => 'Unauthorized'], 403);
+        return;
+    }
+    
+    $data = json_decode(file_get_contents('php://input'), true);
+    
+    $id = Database::insert('pricing_packages', [
+        'name' => $data['name'],
+        'price' => $data['price'],
+        'base_price' => $data['price'],
+        'description' => $data['description'] ?? null,
+        'features' => $data['features'] ?? '[]',
+        'includes' => $data['features'] ?? '[]',
+        'duration_hours' => $data['duration_hours'] ?? 2,
+        'is_popular' => $data['is_popular'] ?? false,
+        'is_active' => $data['is_active'] ?? true,
+        'sort_order' => $data['sort_order'] ?? 0,
+        'created_at' => date('Y-m-d H:i:s'),
+        'updated_at' => date('Y-m-d H:i:s'),
+    ]);
+    
+    Router::json(['success' => true, 'id' => $id]);
+}, ['auth', 'csrf']);
+
+Router::put('/api/pricing/packages/{id}', function($id) {
+    if (!Auth::isAdmin()) {
+        Router::json(['error' => 'Unauthorized'], 403);
+        return;
+    }
+    
+    $data = json_decode(file_get_contents('php://input'), true);
+    
+    Database::update('pricing_packages', [
+        'name' => $data['name'],
+        'price' => $data['price'],
+        'base_price' => $data['price'],
+        'description' => $data['description'] ?? null,
+        'features' => $data['features'] ?? '[]',
+        'includes' => $data['features'] ?? '[]',
+        'is_popular' => $data['is_popular'] ?? false,
+        'is_active' => $data['is_active'] ?? true,
+        'sort_order' => $data['sort_order'] ?? 0,
+        'updated_at' => date('Y-m-d H:i:s'),
+    ], ['id' => $id]);
+    
+    Router::json(['success' => true]);
+}, ['auth', 'csrf']);
+
+Router::delete('/api/pricing/packages/{id}', function($id) {
+    if (!Auth::isAdmin()) {
+        Router::json(['error' => 'Unauthorized'], 403);
+        return;
+    }
+    
+    Database::delete('pricing_packages', ['id' => $id]);
+    Router::json(['success' => true]);
+}, ['auth', 'csrf']);
+
+// Add-ons API
+Router::get('/api/pricing/addons', function() {
+    $addons = Database::query("SELECT * FROM pricing_addons ORDER BY sort_order");
+    Router::json($addons);
+});
+
+Router::get('/api/pricing/addons/{id}', function($id) {
+    $addon = Database::queryRow("SELECT * FROM pricing_addons WHERE id = ?", [$id]);
+    if (!$addon) {
+        Router::json(['error' => 'Add-on not found'], 404);
+        return;
+    }
+    Router::json($addon);
+});
+
+Router::post('/api/pricing/addons', function() {
+    if (!Auth::isAdmin()) {
+        Router::json(['error' => 'Unauthorized'], 403);
+        return;
+    }
+    
+    $data = json_decode(file_get_contents('php://input'), true);
+    
+    $id = Database::insert('pricing_addons', [
+        'name' => $data['name'],
+        'price' => $data['price'],
+        'description' => $data['description'] ?? null,
+        'is_active' => $data['is_active'] ?? true,
+        'sort_order' => $data['sort_order'] ?? 0,
+        'created_at' => date('Y-m-d H:i:s'),
+    ]);
+    
+    Router::json(['success' => true, 'id' => $id]);
+}, ['auth', 'csrf']);
+
+Router::put('/api/pricing/addons/{id}', function($id) {
+    if (!Auth::isAdmin()) {
+        Router::json(['error' => 'Unauthorized'], 403);
+        return;
+    }
+    
+    $data = json_decode(file_get_contents('php://input'), true);
+    
+    Database::update('pricing_addons', [
+        'name' => $data['name'],
+        'price' => $data['price'],
+        'description' => $data['description'] ?? null,
+        'is_active' => $data['is_active'] ?? true,
+        'sort_order' => $data['sort_order'] ?? 0,
+    ], ['id' => $id]);
+    
+    Router::json(['success' => true]);
+}, ['auth', 'csrf']);
+
+Router::delete('/api/pricing/addons/{id}', function($id) {
+    if (!Auth::isAdmin()) {
+        Router::json(['error' => 'Unauthorized'], 403);
+        return;
+    }
+    
+    Database::delete('pricing_addons', ['id' => $id]);
+    Router::json(['success' => true]);
+}, ['auth', 'csrf']);
+
+// =============================================================================
+// GATE API (No auth required)
+// =============================================================================
+
+Router::post('/api/gate/verify', function() {
+    $data = json_decode(file_get_contents('php://input'), true);
+    $password = $data['password'] ?? '';
+    
+    if (Gate::verify($password)) {
+        Router::json(['success' => true]);
+    } else {
+        Router::json(['success' => false, 'error' => 'Invalid password'], 401);
+    }
+});
 
 // =============================================================================
 // DISPATCH

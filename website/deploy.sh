@@ -12,7 +12,7 @@ echo "🚀 Deploying TiredOfDoinTM..."
 
 # Variables
 APP_DIR="/var/www/tiredofdointm"
-REPO_URL="https://github.com/YOUR_USERNAME/tiredofdointm.git"  # Update this
+REPO_URL="https://github.com/Saulgoodmantm/tired.git"
 BRANCH="main"
 
 # Colors

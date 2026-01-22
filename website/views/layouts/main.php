@@ -96,9 +96,27 @@
         </div>
     </div>
 
+    <?php if (!($gatePassed ?? \App\Utils\Gate::hasPassed())): ?>
+    <!-- Gate Overlay -->
+    <div class="gate-overlay">
+        <div class="gate-panel">
+            <div class="gate-content">
+                <input 
+                    type="password" 
+                    class="gate-input" 
+                    placeholder="•••"
+                    maxlength="10"
+                    autocomplete="off"
+                    inputmode="numeric"
+                >
+            </div>
+        </div>
+    </div>
+    <?php endif; ?>
+
     <!-- Scripts -->
     <script src="/assets/js/app.js"></script>
-    <?php if (!Gate::hasPassed()): ?>
+    <?php if (!($gatePassed ?? \App\Utils\Gate::hasPassed())): ?>
         <script src="/assets/js/gate.js"></script>
     <?php endif; ?>
     <?php if (!empty($extraJs)): ?>

@@ -12,9 +12,14 @@ set -euo pipefail
 # CONFIGURATION - EDIT THESE VALUES
 # =============================================================================
 DOMAIN="tiredofdointm.com"
+PANEL_DOMAIN="admin.tiredofdointm.com"
 REPO_URL="https://github.com/Saulgoodmantm/tired.git"
 DEPLOY_USER="deploy"
-APP_DIR="/home/${DEPLOY_USER}/tiredprod"
+# New folder structure
+SITES_ROOT="/home/${DEPLOY_USER}/TiredProductions"
+PANEL_DIR="/home/${DEPLOY_USER}/panel"
+SHARED_DIR="/home/${DEPLOY_USER}/shared"
+APP_DIR="${SITES_ROOT}/${DOMAIN}"
 PHP_VERSION="8.2"
 
 # Colors for output
@@ -170,22 +175,43 @@ fi
 sudo -u ${DEPLOY_USER} ssh-keyscan -t ed25519 github.com >> /home/${DEPLOY_USER}/.ssh/known_hosts 2>/dev/null
 
 # =============================================================================
-# SETUP APPLICATION DIRECTORY
+# SETUP DIRECTORY STRUCTURE
 # =============================================================================
-log_info "Setting up application directory..."
+log_info "Setting up directory structure..."
+
+# Create main directories
+mkdir -p ${SITES_ROOT}
+mkdir -p ${PANEL_DIR}
+mkdir -p ${SHARED_DIR}/templates
 mkdir -p ${APP_DIR}
-chown -R ${DEPLOY_USER}:${DEPLOY_USER} ${APP_DIR}
+
+chown -R ${DEPLOY_USER}:${DEPLOY_USER} /home/${DEPLOY_USER}
 
 # Clone repository if not exists (using SSH for private repo)
 REPO_SSH="git@github.com:Saulgoodmantm/tired.git"
+TEMP_CLONE="/tmp/tired_clone"
+
 if [ ! -d "${APP_DIR}/.git" ]; then
     log_info "Cloning private repository via SSH..."
-    sudo -u ${DEPLOY_USER} git clone ${REPO_SSH} ${APP_DIR} || {
+    rm -rf ${TEMP_CLONE}
+    sudo -u ${DEPLOY_USER} git clone ${REPO_SSH} ${TEMP_CLONE} || {
         log_error "Failed to clone. Make sure you added the deploy key to GitHub!"
         log_info "Deploy key public key:"
         cat ${DEPLOY_KEY}.pub
         exit 1
     }
+    
+    # Copy website to sites directory
+    log_info "Setting up main website..."
+    cp -r ${TEMP_CLONE}/website/* ${APP_DIR}/
+    
+    # Copy panel to panel directory
+    log_info "Setting up VPS panel..."
+    cp -r ${TEMP_CLONE}/vps/panel/* ${PANEL_DIR}/
+    
+    # Keep git repo in sites folder for deployments
+    mv ${TEMP_CLONE}/.git ${APP_DIR}/
+    rm -rf ${TEMP_CLONE}
 else
     log_info "Repository already cloned, pulling latest..."
     cd ${APP_DIR}
@@ -193,23 +219,29 @@ else
     sudo -u ${DEPLOY_USER} git reset --hard origin/main
 fi
 
-# Create storage directories
-mkdir -p ${APP_DIR}/website/storage/{cache,logs,sessions}
-chown -R ${DEPLOY_USER}:${DEPLOY_USER} ${APP_DIR}/website/storage
-chmod -R 775 ${APP_DIR}/website/storage
+# Create storage directories for main site
+mkdir -p ${APP_DIR}/storage/{cache,logs,sessions}
+chown -R ${DEPLOY_USER}:${DEPLOY_USER} ${APP_DIR}/storage
+chmod -R 775 ${APP_DIR}/storage
+
+# Create storage directories for panel
+mkdir -p ${PANEL_DIR}/storage/{logs,sessions}
+chown -R ${DEPLOY_USER}:${DEPLOY_USER} ${PANEL_DIR}/storage
+chmod -R 775 ${PANEL_DIR}/storage
 
 # =============================================================================
 # CONFIGURE NGINX
 # =============================================================================
 log_info "Configuring Nginx..."
 
+# Main site nginx config
 cat > /etc/nginx/sites-available/${DOMAIN} << 'NGINX_CONF'
 server {
     listen 80;
     listen [::]:80;
     server_name DOMAIN_PLACEHOLDER www.DOMAIN_PLACEHOLDER;
 
-    root /home/DEPLOY_USER_PLACEHOLDER/tiredprod/website/public;
+    root SITE_PATH_PLACEHOLDER/public;
     index index.php index.html;
 
     # Security headers
@@ -270,12 +302,70 @@ NGINX_CONF
 
 # Replace placeholders
 sed -i "s/DOMAIN_PLACEHOLDER/${DOMAIN}/g" /etc/nginx/sites-available/${DOMAIN}
-sed -i "s/DEPLOY_USER_PLACEHOLDER/${DEPLOY_USER}/g" /etc/nginx/sites-available/${DOMAIN}
+sed -i "s|SITE_PATH_PLACEHOLDER|${APP_DIR}|g" /etc/nginx/sites-available/${DOMAIN}
 sed -i "s/PHP_VERSION_PLACEHOLDER/${PHP_VERSION}/g" /etc/nginx/sites-available/${DOMAIN}
 
 # Enable site
 ln -sf /etc/nginx/sites-available/${DOMAIN} /etc/nginx/sites-enabled/
 rm -f /etc/nginx/sites-enabled/default
+
+# =============================================================================
+# CONFIGURE NGINX FOR PANEL
+# =============================================================================
+log_info "Configuring Nginx for admin panel..."
+
+cat > /etc/nginx/sites-available/${PANEL_DOMAIN} << 'PANEL_NGINX'
+server {
+    listen 80;
+    listen [::]:80;
+    server_name PANEL_DOMAIN_PLACEHOLDER;
+
+    root PANEL_PATH_PLACEHOLDER/public;
+    index index.php;
+
+    add_header X-Frame-Options "DENY" always;
+    add_header X-Content-Type-Options "nosniff" always;
+    add_header X-XSS-Protection "1; mode=block" always;
+
+    gzip on;
+    gzip_vary on;
+    gzip_min_length 1024;
+    gzip_types text/plain text/css text/xml text/javascript application/javascript application/json;
+
+    location ~* \.(jpg|jpeg|png|gif|ico|css|js|webp|woff|woff2|ttf|svg)$ {
+        expires 7d;
+        add_header Cache-Control "public, immutable";
+        try_files $uri =404;
+    }
+
+    location / {
+        try_files $uri $uri/ /index.php?$query_string;
+    }
+
+    location ~ \.php$ {
+        fastcgi_pass unix:/var/run/php/phpPHP_VERSION_PLACEHOLDER-fpm.sock;
+        fastcgi_param SCRIPT_FILENAME $realpath_root$fastcgi_script_name;
+        include fastcgi_params;
+        fastcgi_hide_header X-Powered-By;
+        fastcgi_read_timeout 120;
+    }
+
+    location ~ /\. { deny all; }
+    location ~ /\.env { deny all; }
+    location ~ /(config|storage|app)/ { deny all; }
+
+    access_log /var/log/nginx/PANEL_DOMAIN_PLACEHOLDER.access.log;
+    error_log /var/log/nginx/PANEL_DOMAIN_PLACEHOLDER.error.log;
+}
+PANEL_NGINX
+
+# Replace panel placeholders
+sed -i "s/PANEL_DOMAIN_PLACEHOLDER/${PANEL_DOMAIN}/g" /etc/nginx/sites-available/${PANEL_DOMAIN}
+sed -i "s|PANEL_PATH_PLACEHOLDER|${PANEL_DIR}|g" /etc/nginx/sites-available/${PANEL_DOMAIN}
+sed -i "s/PHP_VERSION_PLACEHOLDER/${PHP_VERSION}/g" /etc/nginx/sites-available/${PANEL_DOMAIN}
+
+# Enable panel site
+ln -sf /etc/nginx/sites-available/${PANEL_DOMAIN} /etc/nginx/sites-enabled/
 
 # Test nginx config
 nginx -t
@@ -291,14 +381,36 @@ ufw allow 'Nginx Full'
 ufw --force enable
 
 # =============================================================================
-# SETUP ENVIRONMENT FILE
+# SETUP ENVIRONMENT FILES
 # =============================================================================
-ENV_FILE="${APP_DIR}/website/config/.env"
+# Main site .env
+ENV_FILE="${APP_DIR}/config/.env"
 if [ ! -f "${ENV_FILE}" ]; then
-    log_info "Creating .env file from example..."
-    if [ -f "${APP_DIR}/website/config/.env.example" ]; then
-        sudo -u ${DEPLOY_USER} cp "${APP_DIR}/website/config/.env.example" "${ENV_FILE}"
+    log_info "Creating main site .env file..."
+    if [ -f "${APP_DIR}/config/.env.example" ]; then
+        sudo -u ${DEPLOY_USER} cp "${APP_DIR}/config/.env.example" "${ENV_FILE}"
         log_warn "Please edit ${ENV_FILE} with your actual credentials!"
+    fi
+fi
+
+# Panel .env
+PANEL_ENV="${PANEL_DIR}/config/.env"
+if [ ! -f "${PANEL_ENV}" ]; then
+    log_info "Creating panel .env file..."
+    if [ -f "${PANEL_DIR}/config/.env.example" ]; then
+        sudo -u ${DEPLOY_USER} cp "${PANEL_DIR}/config/.env.example" "${PANEL_ENV}"
+        log_warn "Please edit ${PANEL_ENV} with Google OAuth credentials!"
+    fi
+fi
+
+# Panel sites.json
+PANEL_SITES="${PANEL_DIR}/config/sites.json"
+if [ ! -f "${PANEL_SITES}" ]; then
+    log_info "Creating panel sites config..."
+    if [ -f "${PANEL_DIR}/config/sites.json.example" ]; then
+        sudo -u ${DEPLOY_USER} cp "${PANEL_DIR}/config/sites.json.example" "${PANEL_SITES}"
+        # Update path in sites.json
+        sed -i "s|/home/deploy/TiredProductions/tiredofdointm.com|${APP_DIR}|g" "${PANEL_SITES}"
     fi
 fi
 
@@ -307,44 +419,63 @@ fi
 # =============================================================================
 log_info "Setting up deploy script..."
 DEPLOY_SCRIPT="/home/${DEPLOY_USER}/deploy.sh"
-cat > ${DEPLOY_SCRIPT} << 'DEPLOY_EOF'
+cat > ${DEPLOY_SCRIPT} << DEPLOY_EOF
 #!/usr/bin/env bash
 # Quick deploy script - pulls latest from specified branch
 set -euo pipefail
 
-BRANCH="${1:-main}"
-APP_DIR="/home/deploy/tiredprod"
+SITE="\${1:-tiredofdointm.com}"
+BRANCH="\${2:-main}"
+SITES_ROOT="${SITES_ROOT}"
 
-echo "Deploying branch: ${BRANCH}"
+echo "Deploying \${SITE} branch: \${BRANCH}"
 
-cd ${APP_DIR}
+cd \${SITES_ROOT}/\${SITE}
 git fetch --all --prune
-git checkout ${BRANCH}
-git reset --hard origin/${BRANCH}
+git checkout \${BRANCH}
+git reset --hard origin/\${BRANCH}
 git clean -fd
 
 # Run migrations if migrate.php exists
-if [ -f "website/migrate.php" ]; then
+if [ -f "migrate.php" ]; then
     echo "Running migrations..."
-    php website/migrate.php
+    php migrate.php
 fi
 
 # Clear caches
-if [ -d "website/storage/cache" ]; then
-    rm -rf website/storage/cache/*
+if [ -d "storage/cache" ]; then
+    rm -rf storage/cache/*
 fi
 
 # Restart PHP-FPM
-sudo systemctl restart php8.2-fpm
+sudo systemctl restart php${PHP_VERSION}-fpm
 
-echo "Deploy complete: $(date)"
+echo "Deploy complete: \$(date)"
 DEPLOY_EOF
 
 chown ${DEPLOY_USER}:${DEPLOY_USER} ${DEPLOY_SCRIPT}
 chmod +x ${DEPLOY_SCRIPT}
 
-# Allow deploy user to restart php-fpm without password
-echo "${DEPLOY_USER} ALL=(ALL) NOPASSWD: /bin/systemctl restart php${PHP_VERSION}-fpm" > /etc/sudoers.d/${DEPLOY_USER}
+# =============================================================================
+# SETUP SUDOERS FOR DEPLOY USER
+# =============================================================================
+log_info "Configuring sudo permissions for deploy user..."
+
+cat > /etc/sudoers.d/${DEPLOY_USER} << SUDOERS
+# Allow deploy user to manage services
+${DEPLOY_USER} ALL=(ALL) NOPASSWD: /bin/systemctl restart nginx
+${DEPLOY_USER} ALL=(ALL) NOPASSWD: /bin/systemctl reload nginx
+${DEPLOY_USER} ALL=(ALL) NOPASSWD: /bin/systemctl restart php${PHP_VERSION}-fpm
+${DEPLOY_USER} ALL=(ALL) NOPASSWD: /bin/systemctl status *
+${DEPLOY_USER} ALL=(ALL) NOPASSWD: /usr/bin/certbot
+${DEPLOY_USER} ALL=(ALL) NOPASSWD: /usr/bin/tail /var/log/nginx/*
+${DEPLOY_USER} ALL=(ALL) NOPASSWD: /usr/bin/tail /var/log/php*
+${DEPLOY_USER} ALL=(ALL) NOPASSWD: /usr/bin/tail /var/log/auth.log
+${DEPLOY_USER} ALL=(ALL) NOPASSWD: /usr/sbin/nginx -t
+${DEPLOY_USER} ALL=(ALL) NOPASSWD: /usr/sbin/ufw status*
+${DEPLOY_USER} ALL=(ALL) NOPASSWD: /usr/bin/fail2ban-client status*
+SUDOERS
+
 chmod 440 /etc/sudoers.d/${DEPLOY_USER}
 
 # =============================================================================
@@ -359,12 +490,19 @@ systemctl enable fail2ban
 systemctl start fail2ban
 
 # =============================================================================
-# SETUP SSL (OPTIONAL - requires DNS to be pointed)
+# FINAL OUTPUT
 # =============================================================================
 log_info ""
 log_info "=============================================="
 log_info "VPS Setup Complete!"
 log_info "=============================================="
+log_info ""
+log_info "📁 DIRECTORY STRUCTURE:"
+log_info "   /home/${DEPLOY_USER}/"
+log_info "   ├── panel/              → VPS Panel (${PANEL_DOMAIN})"
+log_info "   ├── TiredProductions/   → Your websites"
+log_info "   │   └── ${DOMAIN}/"
+log_info "   └── shared/             → Shared templates"
 log_info ""
 log_info "🔑 DEPLOY KEY (add this to GitHub):"
 log_info "   Go to: https://github.com/Saulgoodmantm/tired/settings/keys"
@@ -375,26 +513,27 @@ echo ""
 log_info ""
 log_info "📋 NEXT STEPS:"
 log_info "1. Add the deploy key above to GitHub (Settings → Deploy keys)"
-log_info "2. Point your domain DNS to this server's IP: $(curl -s ifconfig.me 2>/dev/null || echo 'YOUR_IP')"
-log_info "3. Edit ${ENV_FILE} with your credentials:"
-log_info "   nano ${ENV_FILE}"
-log_info "4. Run database migrations:"
-log_info "   cd ${APP_DIR} && php website/migrate.php"
-log_info "5. Enable SSL:"
+log_info "2. Point DNS to this server's IP: $(curl -s ifconfig.me 2>/dev/null || echo 'YOUR_IP')"
+log_info "   - ${DOMAIN} → A record"
+log_info "   - www.${DOMAIN} → A record"  
+log_info "   - ${PANEL_DOMAIN} → A record"
+log_info ""
+log_info "3. Edit panel config for Google OAuth:"
+log_info "   nano ${PANEL_DIR}/config/.env"
+log_info ""
+log_info "4. Edit main site config:"
+log_info "   nano ${APP_DIR}/config/.env"
+log_info ""
+log_info "5. Enable SSL for both sites:"
 log_info "   sudo certbot --nginx -d ${DOMAIN} -d www.${DOMAIN}"
+log_info "   sudo certbot --nginx -d ${PANEL_DOMAIN}"
 log_info ""
-log_info "🚀 DEPLOYMENT OPTIONS:"
-log_info "   • Web Panel: https://${DOMAIN}/dashboard/server (after setup)"
-log_info "   • Console:   ./deploy.sh main"
-log_info "   • Webhook:   Configure at GitHub → Settings → Webhooks"
-log_info "     URL: https://${DOMAIN}/webhook/github"
+log_info "🎛️ VPS PANEL:"
+log_info "   URL: https://${PANEL_DOMAIN}"
+log_info "   - Manage sites, run commands, view logs"
+log_info "   - Requires Google OAuth setup (see .env)"
 log_info ""
-log_info "🔗 GITHUB WEBHOOK SETUP:"
-log_info "   1. Go to: https://github.com/Saulgoodmantm/tired/settings/hooks"
-log_info "   2. Click 'Add webhook'"
-log_info "   3. Payload URL: https://${DOMAIN}/webhook/github"
-log_info "   4. Content type: application/json"
-log_info "   5. Secret: (set in your .env file as ENCRYPTION_KEY, first 32 chars)"
-log_info "   6. Events: Just the push event"
+log_info "🚀 MANUAL DEPLOYMENT:"
+log_info "   ./deploy.sh ${DOMAIN} main"
 log_info ""
 log_info "=============================================="
