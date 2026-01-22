@@ -1,0 +1,1930 @@
+# 🚨 TIREDOFDOINTM — ULTIMATE MASTER BUILD SPECIFICATION V5 🚨
+## Complete Production Platform with Full Testing & Validation
+
+---
+
+# 📋 TABLE OF CONTENTS
+
+1. [Document Overview](#document-overview)
+2. [Project Identity & Brand](#project-identity)
+3. [Global System Rules](#global-rules)
+4. [Technical Architecture](#technical-architecture)
+5. [Credentials & Configuration](#credentials)
+6. [Design System & UI](#design-system)
+7. [Animation System](#animation-system)
+8. [Authentication System](#authentication)
+9. [Gate System "67"](#gate-system)
+10. [Role & Permission System](#permissions)
+11. [Navigation & Menu](#navigation)
+12. [Homepage & Hero Slideshow](#homepage)
+13. [Gallery System](#gallery-system)
+14. [Booking System](#booking-system)
+15. [Calendar Integration](#calendar)
+16. [Payment System](#payments)
+17. [Contract & Document System](#contracts)
+18. [Messaging System](#messaging)
+19. [Location & Maps System](#locations)
+20. [Model Management System](#models)
+21. [Admin Dashboard](#dashboard)
+22. [Analytics & Tracking](#analytics)
+23. [Automation & Background Jobs](#automation)
+24. [Email Integration](#email)
+25. [Database Schema](#database)
+26. [API Endpoints](#api)
+27. [Security Requirements](#security)
+28. [VPS Deployment](#deployment)
+29. [Validation Checklists](#validation)
+30. [Final Delivery Rules](#delivery-rules)
+
+---
+
+# 📋 DOCUMENT OVERVIEW {#document-overview}
+
+## What This Document Is
+This is a **COMPLETE, SELF-CONTAINED SPECIFICATION** for building a production-ready photography business platform. Every feature, every edge case, every UI element, every database relationship, and every automation flow is explicitly defined. 
+
+## Who Should Read This
+- AI coding assistants (GitHub Spark, Copilot, Claude, etc.)
+- Full-stack developers
+- DevOps engineers
+- UI/UX designers
+
+## How To Use This Document
+1. Read the **ENTIRE** document before starting
+2. Implement features **IN ORDER** (Part 1 → Part 2 → Part 3)
+3. Complete **ALL** validation checkpoints before proceeding
+4. Do **NOT** skip, simplify, or assume anything
+
+## What Makes This Different
+- **NO ASSUMPTIONS** — Everything is explicitly stated
+- **NO PLACEHOLDERS** — Every feature must work
+- **NO PARTIAL IMPLEMENTATIONS** — Complete or nothing
+- **EDGE CASES COVERED** — Error handling specified
+- **LOGIC EXPLAINED** — Why each feature exists
+- **TESTED BEFORE DELIVERY** — Validation required
+
+---
+
+# 🎯 PROJECT IDENTITY & BRAND {#project-identity}
+
+## Brand Information
+- **Name**: `TiredOfDoinTM` (ONE WORD, stylized with capital T and M)
+- **Domain**: `tiredofdointm.com`
+- **Tagline**: Professional photography services
+- **Business Type**: Photography studio, model management, creative agency
+- **Contact Email**: `contact@tiredofdointm.com`
+
+## Instagram Accounts
+- Primary: `@tiredofdointm` → https://www.instagram.com/tiredofdointm/
+- Secondary: `@tiredflics`
+
+## Profile Picture
+```
+https://instagram.fcps3-1.fna.fbcdn. net/v/t51.2885-19/612483021_17897242272370559_4688585427133632962_n.jpg
+```
+
+## What This Platform Does
+1. **Showcases Photography** — Beautiful galleries organized by category
+2. **Automates Booking** — Zero-touch scheduling with calendar integration
+3. **Handles Payments** — Deposits, invoices, multiple payment methods
+4. **Manages Contracts** — Digital signing, templates, legal compliance
+5. **Coordinates Models** — Job assignments, portfolios, commissions
+6. **Delivers Galleries** — Private client galleries with download options
+7. **Protects Assets** — RAW photo storage, watermarking, usage tracking
+8. **Tracks Analytics** — Revenue, views, conversions, performance
+
+---
+
+# 🔒 GLOBAL SYSTEM RULES {#global-rules}
+
+These rules apply to **EVERY** component, page, API call, and interaction. 
+
+## Rule 1: Permission-First Architecture
+Every request must: 
+1. Identify the user (session/token/guest)
+2. Determine their role
+3. Check permission for requested resource
+4. Allow OR deny with logging
+
+**Implementation Pattern:**
+```
+Request → Identify User → Check Role → Verify Permission → Proceed/Deny
+```
+
+**Edge Cases:**
+- Expired session during action → Re-authenticate, retry
+- Role changed while logged in → Immediate permission refresh
+- Shared link access → Validate link token separately
+- API key access → Different permission path
+
+## Rule 2: Auth Gate on All Protected Routes
+Every navigation to protected pages must route through `/auth`:
+
+```
+User clicks /dashboard
+    ↓
+Redirect to /auth? next=/dashboard
+    ↓
+Validate session + role
+    ↓
+Success → Redirect to /dashboard
+Failure → Show login with next= preserved
+```
+
+**Why This Matters:**
+- Prevents bookmark bypass
+- Prevents shared link abuse
+- Graceful session timeout handling
+- Consistent authentication flow
+
+## Rule 3: Data Classification
+
+### Public Data (Never Encrypted, Cacheable)
+| Data | Cache Duration |
+|------|----------------|
+| Public gallery thumbnails | 7 days |
+| Pricing information | 1 hour |
+| Testimonials | 1 day |
+| Homepage content | 1 day |
+
+### Private Data (Always Encrypted)
+| Data | Encryption |
+|------|------------|
+| User credentials | AES-256-GCM |
+| Session tokens | AES-256-GCM |
+| Payment data | Stripe handles |
+| RAW photographs | AES-256-GCM |
+| Private galleries | AES-256-GCM |
+| Contracts | AES-256-GCM |
+| Messages | AES-256-GCM |
+
+## Rule 4: RAW vs Edited Image Separation
+
+Every uploaded photo creates **TWO** tracks: 
+
+### RAW Track
+- Original file (CR2, NEF, ARW, DNG)
+- Encrypted at rest
+- Never publicly accessible
+- Stored forever
+- Reserved for:  legal proof, AI training, ownership disputes
+
+### Edited Track
+- Optimized JPG/WebP
+- Multiple sizes (full, web, mobile, thumb)
+- Optional watermark
+- Public or private based on gallery settings
+
+### Storage Structure
+```
+R2 Bucket:  tiredproduction
+├── /raw/{gallery_id}/{image_id}/original.*
+├── /edited/{gallery_id}/{image_id}/
+│   ├── full.jpg
+│   ├── full_watermarked.jpg
+│   ├── web.jpg (1920px)
+│   ├── mobile.jpg (1080px)
+│   └── thumb.jpg (400px)
+└── /temp/{upload_session}/
+```
+
+## Rule 5: No Static UI
+Every visible element must have motion:
+- **Ambient**:  Subtle gradients, glow pulsing, parallax
+- **Interactive**: Hover states, click feedback, focus rings
+- **State**:  Loading shimmer, success animations, error shake
+- **Navigation**: Page transitions, modal animations, menu sweeps
+
+**Performance Rules:**
+- All animations 60fps
+- Use CSS transforms only
+- Respect `prefers-reduced-motion`
+- Durations under 500ms for interactions
+
+---
+
+# 🧱 TECHNICAL ARCHITECTURE {#technical-architecture}
+
+## Technology Stack
+
+| Layer | Technology | Purpose |
+|-------|------------|---------|
+| Frontend | Next.js / React OR PHP + Vanilla JS | Server-rendered + client hydration |
+| Backend | Node. js / Express OR PHP 8.2 | API services |
+| Database | PostgreSQL (DigitalOcean Managed) | Primary data store |
+| Cache | Redis | Sessions, caching |
+| Storage | Cloudflare R2 | Image hosting |
+| Queue | Bull / Redis OR Supervisor | Background jobs |
+| Email | Gmail API / SMTP | Transactional email |
+| Calendar | Google Calendar API | Availability sync |
+| Maps | Google Maps Platform | Location services |
+| Payments | Stripe | Payment processing |
+
+## Folder Structure (VPS-Ready)
+```
+/var/www/tiredofdointm/
+│
+├── public/                  # Web root (Nginx points here)
+│   ├── index.php
+│   ├── auth.php             # Centralized auth gate
+│   ├── contact.php
+│   ├── gallery.php
+│   ├── booking.php
+│   ├── login.php
+│   ├── signup.php
+│   ├── dashboard.php
+│   ├── assets/
+│   │   ├── css/
+│   │   │   └── main.css     # Dark mode + neon theme
+│   │   ├── js/
+│   │   │   ├── app.js       # Page router + auth hook
+│   │   │   ├── slideshow.js # GTA V-style animations
+│   │   │   └── uploader.js  # Drag/drop + crop
+│   │   └── images/
+│   └── uploads/              # Temp uploads
+│
+├── src/
+│   ├── Controllers/
+│   │   ├── AuthController.php
+│   │   ├── UserController.php
+│   │   ├── GalleryController. php
+│   │   ├── BookingController.php
+│   │   ├── DashboardController.php
+│   │   └── NotificationController.php
+│   ├── Models/
+│   │   ├── User.php
+│   │   ├── Gallery.php
+│   │   ├── Image.php
+│   │   ├── Booking.php
+│   │   └── Event.php
+│   ├── Services/
+│   │   ├── R2Service.php
+│   │   ├── ImageProcessing.php
+│   │   ├── EmailService.php
+│   │   ├── GoogleCalendarService.php
+│   │   └── PaymentService. php
+│   ├── Middleware/
+│   │   ├── AuthMiddleware.php
+│   │   └── RoleMiddleware.php
+│   └── Utils/
+│       ├── Auth.php
+│       ├── Validator.php
+│       ├── Helpers.php
+│       └── Logger.php
+│
+├── storage/
+│   ├── logs/
+│   ├── cache/
+│   └── sessions/
+│
+├── config/
+│   ├── app.php
+│   ├── database.php
+│   └── . env
+│
+├── jobs/
+│   ├── process_images.php
+│   ├── send_notifications.php
+│   ├── aggregate_analytics.php
+│   └── sync_google_calendar.php
+│
+├── migrations/
+│   └── 001_initial_schema.sql
+│
+├── templates/
+│   └── emails/
+│
+└── vendor/
+```
+
+---
+
+# 🔑 CREDENTIALS & CONFIGURATION {#credentials}
+
+## Database (DigitalOcean Managed PostgreSQL)
+```env
+DB_HOST=baas-db-4408115-do-user-31921031-0.k.db.ondigitalocean.com
+DB_PORT=25060
+DB_NAME=defaultdb
+DB_USER=doadmin
+DB_PASS=AVNS_bzOAqQ9dOwKEgeUD1bF
+DB_SSL=require
+```
+
+## Cloudflare R2
+```env
+R2_ACCOUNT_ID=34ef3693f46916ef29f68136315492bf
+R2_ACCESS_KEY=c7395833bbc2546f50c6f92f87a3df44
+R2_SECRET_KEY=0aa7522f5ca67877e3e8387636235998c9a285ed6f8fd2cbb2105d88a70b213c
+R2_BUCKET=tiredproduction
+R2_ENDPOINT=https://34ef3693f46916ef29f68136315492bf.r2.cloudflarestorage.com
+R2_TOKEN=Heyd3h2b9WQ-EOvDOXPqh0C3tJ7Vw8OKjWjM9sSv
+R2_PUBLIC_URL=https://images.tiredofdointm. com
+```
+
+## Google APIs
+```env
+GOOGLE_CLIENT_ID=666840192160-n4tp7qu7p2i8sp6qpv146ae0tb8vhdc2.apps.googleusercontent.com
+GOOGLE_CLIENT_SECRET=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
+GOOGLE_CALENDAR_ID=c_99456931c63b4bd51e9ae38725ffabdf79b4caa4afe48ab090b09d4aa0610a19@group. calendar.google.com
+GOOGLE_API_KEY=AIzaSyCEoPyJIbtJnheIG3SemBghTlqKH0uTL2c
+```
+
+**Calendar Embed URL:**
+```
+https://calendar.google.com/calendar/embed?src=c_99456931c63b4bd51e9ae38725ffabdf79b4caa4afe48ab090b09d4aa0610a19%40group.calendar.google.com&ctz=America%2FLos_Angeles
+```
+
+## Stripe (LIVE)
+```env
+STRIPE_PUBLISHABLE_KEY=pk_live_51Srp7j5aZvjqzgKXCEzSeS3y6ZpYun6eRNfXwdMiMkQrRacX7Qt9BFlNpHcTJGjSbQyBF5VfsWJHn6LG9lw0fDAj003d7RdCPI
+STRIPE_SECRET_KEY=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
+STRIPE_WEBHOOK_SECRET=whsec_... 
+```
+
+## SMTP (Google Workspace - Fill after setup)
+```env
+SMTP_HOST=smtp.gmail.com
+SMTP_USER=contact@tiredofdointm.com
+SMTP_PASS=
+SMTP_PORT=587
+```
+
+## Admin Auto-Register Emails
+These emails are **AUTO-CREATED** as **ADMIN** on first deploy:
+```
+maxudelep@gmail.com
+taeveyrust@gmail.com
+goshakucherenkobeast@gmail.com
+lana8186296366@gmail.com
+justforvalorant41@gmail.com
+```
+
+## App Configuration
+```env
+APP_NAME=TiredOfDoinTM
+APP_URL=https://tiredofdointm.com
+APP_ENV=production
+APP_DEBUG=false
+
+FONT_MAIN=Space+Grotesk
+SHOWCASE_INTERVAL=6000
+SHOWCASE_FAST_SWAP=500
+
+GATE_PASSWORD=67
+GATE_SECRET=<random-32-char-string>
+```
+
+---
+
+# 🎨 DESIGN SYSTEM & UI {#design-system}
+
+## Color Philosophy
+The color system balances sophistication with comfort.  We use a **muted** dark base with strategic accents.  **NOT** blinding white or harsh neon. 
+
+## Color Palette (Muted & Dark-Friendly)
+
+### Background Colors (Dark Mode - DEFAULT)
+```css
+: root {
+  /* Base backgrounds - NOT pure black, softer on eyes */
+  --bg-base: #0a0a0f;           /* Very dark blue-gray */
+  --bg-surface: #12121a;        /* Slightly elevated */
+  --bg-elevated: #1a1a24;       /* Cards, modals */
+  --bg-hover: #22222e;          /* Hover states */
+  --bg-active: #2a2a38;         /* Active/pressed */
+  
+  /* Glass effects */
+  --bg-glass: rgba(18, 18, 26, 0.85);
+  --bg-glass-heavy: rgba(10, 10, 15, 0.95);
+  
+  /* Overlays */
+  --overlay-light: rgba(255, 255, 255, 0.03);
+  --overlay-medium:  rgba(255, 255, 255, 0.06);
+}
+```
+
+### Text Colors (NOT pure white)
+```css
+:root {
+  /* Text - using off-whites for comfort */
+  --text-primary:  #e4e4e7;      /* Main text - soft white */
+  --text-secondary:  #a1a1aa;    /* Secondary - muted */
+  --text-tertiary: #71717a;     /* Tertiary - subtle */
+  --text-muted: #52525b;        /* Very subtle */
+  --text-disabled: #3f3f46;     /* Disabled */
+}
+```
+
+### Accent Colors (Muted Violet - NOT harsh neon)
+```css
+:root {
+  --violet-50: #f3f2ff;
+  --violet-100: #e9e7ff;
+  --violet-200: #d4d0ff;
+  --violet-300: #b5aeff;
+  --violet-400: #9385f9;
+  --violet-500: #7c6bf0;    /* Primary - muted, comfortable */
+  --violet-600: #6a54e0;
+  --violet-700: #5a44c9;
+  --violet-800: #4a38a3;
+  --violet-900: #3d3085;
+  --violet-950: #251c56;
+}
+```
+
+### Glow Effects (Subtle, not blinding)
+```css
+:root {
+  --glow-violet-subtle: 0 0 20px rgba(124, 107, 240, 0.15);
+  --glow-violet-medium: 0 0 30px rgba(124, 107, 240, 0.25);
+  --glow-violet-strong: 0 0 40px rgba(124, 107, 240, 0.35);
+  
+  /* Shadow for depth */
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
+  --shadow-md: 0 4px 8px rgba(0, 0, 0, 0.3);
+  --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.4);
+  --shadow-xl: 0 16px 48px rgba(0, 0, 0, 0.5);
+}
+```
+
+### Text with Contrast Outline
+All primary text has subtle black outline for readability:
+```css
+.text-outlined {
+  color: var(--text-primary);
+  text-shadow: 
+    0 1px 3px rgba(0, 0, 0, 0.5),
+    0 0 20px rgba(0, 0, 0, 0.3);
+}
+```
+
+## Typography System
+
+### Font Families
+```css
+:root {
+  --font-display: 'Space Grotesk', system-ui, sans-serif;
+  --font-body: 'Inter', system-ui, sans-serif;
+  --font-mono:  'JetBrains Mono', monospace;
+}
+```
+
+### Type Scale
+```css
+:root {
+  --text-xs: 0.75rem;      /* 12px */
+  --text-sm: 0.875rem;     /* 14px */
+  --text-base: 1rem;       /* 16px */
+  --text-lg:  1.125rem;     /* 18px */
+  --text-xl: 1.25rem;      /* 20px */
+  --text-2xl:  1.5rem;      /* 24px */
+  --text-3xl: 1.875rem;    /* 30px */
+  --text-4xl:  2.25rem;     /* 36px */
+  --text-5xl: 3rem;        /* 48px */
+  --text-6xl: 3.75rem;     /* 60px */
+}
+```
+
+### Brand Name Style
+```css
+.brand-name {
+  font-family: var(--font-display);
+  font-size: var(--text-5xl);
+  font-weight: 300; /* Thin */
+  letter-spacing: -0.025em;
+  color: var(--text-primary);
+  
+  /* Subtle neon glow */
+  text-shadow: 
+    0 0 10px rgba(124, 107, 240, 0.3),
+    0 0 20px rgba(124, 107, 240, 0.2),
+    0 0 40px rgba(124, 107, 240, 0.1);
+}
+
+. brand-subtitle {
+  font-family: var(--font-body);
+  font-size: var(--text-lg);
+  font-weight: 300;
+  font-style: italic;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--text-tertiary);
+}
+```
+
+## Component Styles
+
+### Buttons
+```css
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1.5rem;
+  border-radius: 12px;
+  font-family: var(--font-body);
+  font-size: var(--text-sm);
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  border: none;
+}
+
+.btn-primary {
+  background: linear-gradient(135deg, var(--violet-600), var(--violet-700));
+  color: var(--text-primary);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: var(--glow-violet-subtle);
+}
+
+.btn-primary:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--glow-violet-medium);
+}
+
+.btn-primary:active {
+  transform: translateY(0) scale(0.98);
+}
+```
+
+### Cards
+```css
+.card {
+  background: var(--bg-elevated);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 16px;
+  padding: 1.5rem;
+  box-shadow: var(--shadow-md);
+  transition: all 0.3s ease;
+}
+
+.card:hover {
+  transform: translateY(-4px);
+  border-color: var(--violet-500);
+  box-shadow: var(--shadow-lg), var(--glow-violet-subtle);
+}
+```
+
+### Inputs
+```css
+.input {
+  width: 100%;
+  padding:  0.75rem 1rem;
+  background: var(--bg-surface);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 10px;
+  color: var(--text-primary);
+  font-family: var(--font-body);
+  font-size: var(--text-base);
+  transition: all 0.2s ease;
+}
+
+.input:focus {
+  outline: none;
+  border-color: var(--violet-500);
+  box-shadow: 0 0 0 3px rgba(124, 107, 240, 0.15);
+}
+
+.input::placeholder {
+  color: var(--text-muted);
+}
+```
+
+---
+
+# ✨ ANIMATION SYSTEM {#animation-system}
+
+## Timing Functions
+```css
+:root {
+  --ease-default: cubic-bezier(0.4, 0, 0.2, 1);
+  --ease-in: cubic-bezier(0.4, 0, 1, 1);
+  --ease-out: cubic-bezier(0, 0, 0.2, 1);
+  --ease-bounce: cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+```
+
+## Animation Specifications
+
+### Page Transitions
+- Duration: 300ms
+- Type: Smooth fade with 20px vertical slide
+
+### Card Hover
+- Duration: 200ms
+- Effect: Lift + shadow expansion + scale(1.02)
+
+### Chart Animations
+- Duration: 800ms staggered entrance
+- Easing: easeOut for bars/lines
+
+### Button Press
+- Duration: 100ms
+- Effect: scale(0.98) with spring back
+
+### Loading States
+- Type: Skeleton shimmer
+- Duration: 1. 5s loop
+
+### Notification Pop
+- Duration: 250ms
+- Effect: Spring slide from top-right with bounce
+
+### Gallery Images
+- Type: Progressive blur-up load
+- Duration: 400ms crossfade
+
+### Stat Counter
+- Duration: 1200ms count-up on first view
+
+---
+
+# 🔐 AUTHENTICATION SYSTEM {#authentication}
+
+## Overview
+**Passwordless authentication only. ** Users never create or manage passwords. 
+
+## Method 1: Email OTP (Primary)
+
+### Flow
+```
+1. User enters email
+2. System checks if email exists
+   - EXISTS → Login flow
+   - NOT EXISTS → Signup flow
+3. Generate 6-character alphanumeric OTP
+4. Store OTP hash in database with 10-minute expiry
+5. Send email with OTP (NEVER show on screen)
+6. User enters OTP from email
+7. Validate:  not expired, attempts < 5, hash matches
+8. Create/update user and session
+9. Redirect to intended destination
+```
+
+### OTP Generation
+```javascript
+function generateOTP() {
+  // Removed ambiguous characters:  0, O, I, 1, L
+  const chars = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
+  let otp = '';
+  for (let i = 0; i < 6; i++) {
+    otp += chars.charAt(crypto.randomInt(chars.length));
+  }
+  return otp;
+}
+```
+
+### OTP Email Template
+```
+Subject: Your TiredOfDoinTM verification code
+
+Your code is: [OTP]
+
+This code expires in 10 minutes. 
+
+If you didn't request this, ignore this email. 
+
+— TiredOfDoinTM
+```
+
+## Method 2: Google OAuth
+
+### Flow
+```
+1. User clicks "Sign in with Google"
+2. Redirect to Google consent screen
+3. User grants permission
+4. Google redirects to callback with code
+5. Exchange code for tokens
+6. Extract user info from ID token
+7. Find or create user: 
+   - Search by google_id first
+   - Then search by email
+   - Link google_id if new to existing
+   - Create new user if not found
+8. Create session, redirect
+```
+
+## Session Management
+
+### Session Creation
+```javascript
+async function createSession(user, request) {
+  const sessionToken = crypto.randomBytes(32).toString('hex');
+  const fingerprint = generateDeviceFingerprint(request);
+  const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000); // 30 days
+  
+  await db.sessions.create({
+    user_id: user.id,
+    token_hash: hashToken(sessionToken),
+    device_fingerprint: fingerprint,
+    ip_address: request.ip,
+    user_agent: request.headers['user-agent'],
+    expires_at: expiresAt
+  });
+  
+  response.cookie('session', sessionToken, {
+    httpOnly: true,
+    secure: true,
+    sameSite: 'lax',
+    maxAge: 30 * 24 * 60 * 60 * 1000,
+    domain: 'tiredofdointm. com'
+  });
+  
+  return session;
+}
+```
+
+### Device Fingerprinting
+```javascript
+function generateDeviceFingerprint(request) {
+  const components = [
+    request.headers['user-agent'],
+    request.headers['accept-language'],
+    request.headers['accept-encoding'],
+  ];
+  
+  return crypto
+    .createHash('sha256')
+    .update(components.join('|'))
+    .digest('hex')
+    .substring(0, 32);
+}
+```
+
+## Admin Auto-Seeding
+```javascript
+const ADMIN_EMAILS = [
+  'maxudelep@gmail.com',
+  'taeveyrust@gmail. com',
+  'goshakucherenkobeast@gmail. com',
+  'lana8186296366@gmail.com',
+  'justforvalorant41@gmail.com'
+];
+
+async function seedAdminUsers() {
+  const adminRole = await db.roles.findOne({ name: 'admin' });
+  
+  for (const email of ADMIN_EMAILS) {
+    const existing = await db.users.findOne({ email });
+    
+    if (!existing) {
+      await db.users.create({
+        email,
+        role_id: adminRole. id,
+        username: email.split('@')[0],
+        email_verified: true,
+        created_by: 'system_seed'
+      });
+    } else if (existing.role_id !== adminRole.id) {
+      await db.users. update(existing.id, { role_id: adminRole.id });
+    }
+  }
+}
+```
+
+---
+
+# 🔐 GATE SYSTEM ("67") {#gate-system}
+
+## Purpose
+Simple password gate for friends/family access during development/soft launch.
+
+## User Experience
+
+### Flow
+```
+1. User navigates to site
+2. Page begins loading normally
+3. Over 1-2 seconds, screen progressively blurs
+4. Sleek input panel slides up from bottom
+5. User types "67"
+6. Correct → blur fades, panel slides down, site accessible
+7. Incorrect → shake animation, red glow, try again
+```
+
+## Visual Implementation
+```css
+/* Blur overlay */
+.gate-overlay {
+  position: fixed;
+  inset: 0;
+  backdrop-filter: blur(0px);
+  background: rgba(0, 0, 0, 0);
+  transition: all 2s var(--ease-out);
+  z-index: 9998;
+  pointer-events: none;
+}
+
+. gate-overlay.active {
+  backdrop-filter: blur(30px);
+  background: rgba(0, 0, 0, 0.3);
+  pointer-events: all;
+}
+
+/* Password panel */
+.gate-panel {
+  position: fixed;
+  bottom: 0;
+  left: 50%;
+  transform: translateX(-50%) translateY(100%);
+  transition: transform 0.5s var(--ease-bounce);
+  z-index: 9999;
+  
+  background: var(--bg-glass);
+  backdrop-filter: blur(30px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 24px 24px 0 0;
+  padding: 3rem 4rem;
+  
+  box-shadow: 
+    0 -10px 40px rgba(0, 0, 0, 0.3),
+    0 0 60px rgba(124, 107, 240, 0.2);
+}
+
+.gate-panel.visible {
+  transform: translateX(-50%) translateY(0);
+}
+
+/* Input */
+.gate-input {
+  font-family: var(--font-mono);
+  font-size: var(--text-5xl);
+  letter-spacing: 1rem;
+  text-align: center;
+  background: transparent;
+  border: 2px solid rgba(255, 255, 255, 0.15);
+  border-radius: 12px;
+  color: var(--text-primary);
+  padding: 1.5rem 2. 5rem;
+  width: 250px;
+  -webkit-text-security: disc;
+  transition: all 0.3s ease;
+}
+
+.gate-input:focus {
+  outline: none;
+  border-color: var(--violet-500);
+  box-shadow: var(--glow-violet-medium);
+}
+
+.gate-input. error {
+  border-color:  #ef4444;
+  animation: shake 0.5s ease-in-out;
+}
+
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  20%, 60% { transform: translateX(-10px); }
+  40%, 80% { transform:  translateX(10px); }
+}
+```
+
+## Security Implementation
+```javascript
+// Server-side validation
+app.post('/api/gate/validate', (req, res) => {
+  const { password } = req.body;
+  
+  // Constant-time comparison
+  const expected = Buffer.from('67');
+  const received = Buffer.from(password || '');
+  
+  if (expected.length !== received.length ||
+      ! crypto.timingSafeEqual(expected, received)) {
+    return res.status(401).json({ error: 'Invalid' });
+  }
+  
+  // Set HMAC-signed cookie
+  const timestamp = Date.now();
+  const expires = timestamp + (30 * 24 * 60 * 60 * 1000);
+  const payload = `${timestamp}: ${expires}`;
+  const signature = crypto
+    .createHmac('sha256', process.env.GATE_SECRET)
+    .update(payload)
+    .digest('hex');
+  
+  res.cookie('gate_pass', `${payload}:${signature}`, {
+    httpOnly: true,
+    secure: true,
+    sameSite: 'lax',
+    maxAge: 30 * 24 * 60 * 60 * 1000
+  });
+  
+  res.json({ success: true });
+});
+```
+
+---
+
+# 👤 ROLE & PERMISSION SYSTEM {#permissions}
+
+## Role Hierarchy
+```
+ADMIN (100)         ← Full system access
+    ↑
+MANAGER (80)        ← Business operations
+    ↑
+STAFF (50)          ← Limited operations
+    ↑
+PHOTOGRAPHER (30)   ← External photographers
+    ↑
+MODEL (25)          ← Portfolio, jobs
+    ↑
+CLIENT (20)         ← Booking, own galleries
+    ↑
+REGISTERED (10)     ← Basic account
+    ↑
+GUEST (0)           ← Public only
+```
+
+## Permission Matrix
+
+### Page Access
+| Page | Guest | Registered | Client | Model | Staff | Manager | Admin |
+|------|-------|------------|--------|-------|-------|---------|-------|
+| Home | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| Gallery (public) | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| Pricing | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| Contact | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| Booking | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| Calendar | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| Profile | ❌ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| Messages | ❌ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| My Bookings | ❌ | ❌ | ✅ | ❌ | ✅ | ✅ | ✅ |
+| My Galleries | ❌ | ❌ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| Models | ❌ | View | View | ✅ | ✅ | ✅ | ✅ |
+| Dashboard | ❌ | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ |
+| Settings | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ✅ |
+
+### Action Permissions
+| Action | Guest | Registered | Client | Model | Staff | Manager | Admin |
+|--------|-------|------------|--------|-------|-------|---------|-------|
+| View public galleries | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| Request booking | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| Send message | ❌ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| View own gallery | ❌ | ❌ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| Download images | ❌ | ❌ | Own | Own | ✅ | ✅ | ✅ |
+| Upload images | ❌ | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ |
+| Create gallery | ❌ | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ |
+| Edit any gallery | ❌ | ❌ | ❌ | ❌ | ❌ | ✅ | ✅ |
+| Delete gallery | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ✅ |
+| Manage bookings | ❌ | ❌ | Own | ❌ | View | ✅ | ✅ |
+| Set availability | ❌ | ❌ | ❌ | Own | ❌ | ✅ | ✅ |
+| Create contracts | ❌ | ❌ | ❌ | ❌ | ❌ | ✅ | ✅ |
+| Create invoices | ❌ | ❌ | ❌ | ❌ | ❌ | ✅ | ✅ |
+| Manage users | ❌ | ❌ | ❌ | ❌ | ❌ | View | ✅ |
+| View RAW images | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ✅ |
+| System settings | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ✅ |
+
+## Permission Middleware
+```javascript
+function requirePermission(permission) {
+  return async (req, res, next) => {
+    const user = req.user;
+    
+    if (!user) {
+      if (permission === 'view_public') return next();
+      return res.redirect(`/auth? next=${encodeURIComponent(req.originalUrl)}`);
+    }
+    
+    const role = await db.roles.findById(user.role_id);
+    
+    // Admin wildcard
+    if (role.permissions['*']) return next();
+    
+    // Check specific permission
+    if (role.permissions[permission]) return next();
+    
+    // Denied
+    logSecurityEvent('permission_denied', user.id, { permission });
+    return res.status(403).render('errors/403');
+  };
+}
+```
+
+---
+
+# 🧭 NAVIGATION & MENU SYSTEM {#navigation}
+
+## Menu Structure
+```
+📂 Gallery (click expands, header NOT clickable)
+├── Personal
+├── Product
+├── Group
+├── Event
+└── Misc
+
+📂 Socials (NOT clickable — label only)
+├── Instagram → https://www.instagram.com/tiredofdointm/
+└── TikTok → @tiredofdointm
+
+📂 Contact
+├── Message Here
+├── Email → contact@tiredofdointm. com
+└── Socials (inline)
+
+📋 Rates
+
+🔐 Sign In / Sign Up
+
+⚙️ Settings (logged in only)
+
+📊 Dashboard (ADMIN/STAFF ONLY)
+```
+
+## Menu Button (Top Right)
+- Large animated button
+- Profile avatar visible when logged in
+- Username visible when logged in
+- Sign out button when logged in
+
+## Menu Overlay
+- Full-screen diagonal black animated overlay
+- Smooth entrance/exit animation
+- Neon glow on menu items
+
+## Navigation Rules
+- Section headers **NOT** clickable unless leaf node
+- Social links open in new tab
+- Menu items have hover glow
+
+---
+
+# 🏠 HOMEPAGE & HERO SLIDESHOW {#homepage}
+
+## Profile Section
+- **Name**: `TiredOfDoinTM` (thin font, neon glow)
+- **Subtitle**: `PHOTOGRAPHER` (italic, caps)
+- **Profile picture**: From Instagram
+- **Instagram embed/link**
+
+## Button Layout (ABOVE slideshow)
+```
+[View Schedule]  ← Secondary button, shows calendar
+[View Portfolio] ← Primary purple button
+[Book Now]       ← Secondary button
+```
+
+## Testimonials Carousel
+- Admin-editable
+- Smooth animation
+- Auto-cycles
+
+## Hero Slideshow (GTA V Loading Style)
+
+### Animation Behavior (CRITICAL)
+
+**Image Entry:**
+- Slides in QUICKLY from chosen direction
+- Stops centered
+- Starts slightly zoomed (1.05–1.1 scale)
+
+**During Display (5–7 seconds):**
+- SLOWLY pans across frame
+- SLOWLY zooms (scale increases)
+- Speed is RANDOMIZED per image
+- Direction configurable per image
+
+**Image Exit:**
+- Speed RAMPS UP rapidly
+- Slides out to opposite direction
+- Next image enters seamlessly
+
+**Rules:**
+- Motion NEVER stops
+- NO flashing
+- NO fade-only transitions
+- Always something moving
+
+### Dashboard Controls (Per Image)
+- Entry direction (left/right/top/bottom)
+- Exit direction
+- Zoom start amount
+- Zoom end amount
+- Pan speed
+- Duration (5–7 seconds)
+- Order (pinned first, then random)
+
+### Navigation Controls
+- Left/right arrows on sides
+- Dot indicators at bottom
+- Click dot → jump to image
+- Click image → go to that category
+
+---
+
+# 🖼️ GALLERY SYSTEM {#gallery-system}
+
+## Gallery Types
+
+### 1. Public
+- Visible to everyone
+- Categorized by shoot type
+- Shown in showcase
+
+### 2. Unlisted (Anyone with link)
+- Only accessible with unique token link
+- Cannot be guessed/found
+- Different URL each time generated
+
+### 3. Private
+- Admin/owner only
+- Not visible anywhere public
+
+## Gallery Categories
+- Personal
+- Product
+- Group
+- Event
+- Misc
+
+## Storage (Cloudflare R2)
+
+### Folder Structure
+```
+/galleries/
+  /{gallery_id}/
+    /raw/        ← Encrypted, private, AI training
+    /edited/     ← Optimized, delivery
+    /thumbs/     ← Thumbnails
+```
+
+### Image Processing Pipeline
+```
+Upload → Validate → Store Original (encrypted if RAW) →
+Generate Derivatives → Upload to R2 → Save Metadata → Done
+```
+
+### Derivatives Generated
+- `full.jpg` - Full resolution
+- `full_watermarked.jpg` - With watermark
+- `web. jpg` - 1920px
+- `mobile.jpg` - 1080px
+- `thumb.jpg` - 400px
+
+## Gallery Features
+
+### Display
+- Masonry layout with lightbox
+- Cover image selection
+- Search/sort by name, date, category
+- "Latest Work" tab
+- Progressive blur-up load
+
+### Upload (Admin Only)
+- Drag-and-drop
+- Multi-file support
+- Progress indicators
+- Category assignment
+- Date taken (from EXIF or manual)
+- RAW format support (. CR2, .NEF, .ARW)
+- Watermark toggle per image
+
+### Image Editing Tools
+- Crop
+- Rotate
+- Filters/effects
+- Batch operations
+- Caption editing
+- Reordering (drag-and-drop)
+- Set as cover
+- Delete with confirmation
+
+### Batch Operations
+- Select multiple
+- Batch delete
+- Batch move category
+- Batch add/edit captions
+- Batch toggle watermark
+- Select all / deselect all
+
+### Image Search
+- Search by caption
+- Search by date
+- Search by category
+- Reverse image search (find usage)
+- Filter by gallery type
+
+## Client Galleries
+
+### Features
+- Unique share link per gallery
+- Token-based access
+- Full quality preserved
+- Device-aware download: 
+  - iPhone: Save to Camera Roll
+  - Desktop:  Bulk download to folder
+- Admin can revoke/delete anytime
+
+---
+
+# 📅 BOOKING SYSTEM {#booking-system}
+
+## Booking Flow
+
+### Phase 1: Calendar View
+- Shows next 4 weeks
+- Only AVAILABLE dates highlighted
+- Past dates grayed out
+- Booked dates hidden from public
+- Click available date → time selection
+
+### Phase 2: Time Selection
+- Calendar shrinks to left
+- Right panel shows available hours
+- Select start + end time
+- Auto-calculate duration
+- 4-hour buffer before/after existing bookings
+
+### Phase 3: Booking Form
+**Title:  "Before We Begin"**
+**Subtitle: "Only 8 are required" (muted text)**
+
+**Required Questions:**
+1. What's your name?  *
+2. What's your email?  *
+3. How long would you like the photoshoot? *
+4. What type of photoshoot? (Dropdown) *
+5. Date (pre-filled or picker) *
+6. Location in mind or need help? *
+7. Need help finding studio/location? 
+8. Need help hiring someone? 
+
+**Optional:**
+9. Moodboard or inspiration? 
+
+**Account Check (Question 10):**
+- If logged in → Skip
+- If email matches existing → Prompt login
+- If new email → "Create account" checkbox
+
+### Phase 4: Add-ons
+- Model hiring ($25-$150)
+- Extra time
+- Additional locations
+- Rush editing
+- Real-time total calculation
+
+### Phase 5: Contract
+- Auto-generated from template
+- Auto-filled with booking data
+- MUST be signed BEFORE payment
+- Timestamp + IP + hash stored
+
+### Phase 6: Payment
+- 50% deposit required
+- Device-aware payment order: 
+  - iPhone: Apple Pay → Card → Others
+  - Desktop: Card → Google Pay → Others
+- Fee surcharge labels (configurable)
+
+### Phase 7: Confirmation
+- Confirmation page shown
+- Emails sent (client + admin)
+- Google Calendar event created
+- Date removed from availability
+- Booking appears in dashboard
+
+## Pricing Packages
+
+| Package | Price | Hours | Edited Photos | Locations | Retouching | Gallery | Consultation |
+|---------|-------|-------|---------------|-----------|------------|---------|--------------|
+| Basic | $200 | 2 | 50+ | Single | With | Yes | – |
+| Standard | $375 | 4 | 125+ | 1-2 | Full | Yes | – |
+| Premium | $525 | 6 | 275+ | Unlimited | Full | Yes | Yes |
+
+---
+
+# 📆 CALENDAR INTEGRATION {#calendar}
+
+## Google Calendar Sync
+
+### Pull FROM Google
+- Fetch availability
+- Show available days on public calendar
+
+### Push TO Google
+- Create events for confirmed bookings
+- Include:  client name, shoot type, location, time, weather forecast, notes
+
+## Public Calendar View
+- Shows ONLY available dates
+- Next 4 weeks visible
+- Clicking available date opens booking flow
+
+## Admin Calendar
+- Full year view
+- Set days as available/unavailable
+- Create/edit events
+- Sync both directions
+
+---
+
+# 💳 PAYMENT SYSTEM {#payments}
+
+## Stripe Integration
+
+### Features
+- Payment intents
+- Checkout sessions
+- Webhooks
+- Refunds
+
+### Deposit System
+- 50% deposit required
+- Remainder due before/after shoot (configurable)
+
+### Device-Aware Payment Order
+**iPhone/iOS:**
+1. Apple Pay
+2. Card
+3. Others
+
+**Android:**
+1. Google Pay
+2. Card
+3. Others
+
+**Desktop:**
+1. Card
+2. Link
+3. Others
+
+### Fee Surcharge
+- Toggleable per payment method
+- Display percentage to user
+- Example: "3% fee for credit card"
+
+---
+
+# 📄 CONTRACT & DOCUMENT SYSTEM {#contracts}
+
+## Document Types
+- Model Release
+- Copyright License
+- Client Agreement
+- Contractor Agreement
+- Custom Templates
+
+## Template System
+- Stored in database
+- Placeholders:  `{{client_name}}`, `{{date}}`, `{{shoot_type}}`, `{{price}}`
+- Rich text editing
+- Preview before sending
+
+## Signing Flow
+1. Contract generated from template
+2. Auto-filled with booking data
+3. Sent to client email
+4. Client opens unique link
+5. Reviews contract
+6. Signs electronically
+7. Timestamp + IP recorded
+8. Signed contract stored
+9. PDF generated
+10. Confirmation sent
+
+## Legal Requirements
+- Legally binding signatures
+- Audit trail
+- Immutable records
+- All laws followed
+
+---
+
+# 💬 MESSAGING SYSTEM {#messaging}
+
+## Website Inbox
+- Floating message icon (bottom-right)
+- Click to open chat panel
+- Threaded conversations
+- Real-time updates
+- Visible only when logged in
+- Guest sees "Sign in to message"
+
+## Gmail Integration
+- Messages sync with email
+- Reply from website → sends email
+- Reply from email → appears on website
+- Subject lines preserved
+- Attachments supported
+
+## Notifications
+- New message notification
+- Browser notification (if permitted)
+- Email notification (configurable)
+- Unread count badge
+
+---
+
+# 📍 LOCATION & MAPS SYSTEM {#locations}
+
+## Location Management
+- Save shoot locations
+- Google Maps embed
+- Search for locations
+- Pin on map
+- Add notes
+- Associate with galleries/bookings
+
+## Street View
+- Click location → Street View opens
+- Embedded viewer
+- Navigate around
+
+## Distance Calculation
+- Calculate from base location
+- Travel fee auto-calculation
+- 1. 5h threshold → requires approval
+
+## Weather Integration
+- Weather for shoot date
+- Temperature, conditions
+- Sunrise/sunset times
+- Rain alerts with notifications
+
+---
+
+# 🎭 MODEL MANAGEMENT SYSTEM {#models}
+
+## Model Profiles
+- Portfolio gallery
+- Rates
+- Availability calendar
+- Commission rate
+- Status (active/inactive)
+
+## Job Assignment
+- Assign model to booking
+- Rate applied
+- Commission calculated
+- Model notified
+
+## Model Visibility
+- Visible to registered users
+- Details visible to staff+
+- Contact info to admin only
+
+---
+
+# 📊 ADMIN DASHBOARD {#dashboard}
+
+## Access
+- ADMIN/STAFF+ only
+- Invisible to non-admins
+- Auto-admin emails have access
+
+## Layout
+- Hover-expand left taskbar
+- Tabs expand when hovered
+- Click navigates to page
+- Taskbar stays visible
+
+## Dashboard Sections
+
+### 1. Overview
+- Booked photoshoots count
+- Website views graph
+- Image view counts
+- Available days (30/60/90 toggle)
+- Earnings this year
+- Planned earnings
+
+### 2. Calendar
+- Full year view
+- Set availability
+- View bookings
+- Google Calendar sync
+
+### 3. Bookings
+- All bookings list
+- Filter by status
+- Booking details
+- Quick actions
+
+### 4. Clients (Manage)
+- All users list
+- Search by name/email/IP
+- View booking history
+- Send message/contract/invoice
+- Add new clients
+
+### 5. Messages
+- All conversations
+- Unread count
+- Quick reply
+
+### 6. Contracts
+- Templates list
+- Signed contracts
+- Pending signatures
+- Auto-fill names
+
+### 7. Gallery
+- Create/manage galleries
+- Pin images to showcase
+- Set public/private/unlisted
+- Client gallery links
+- Image editing tools
+
+### 8. Billing
+- Create invoices
+- Payment methods
+- Send via email/phone
+- Track status
+
+### 9. Locations
+- Saved locations map
+- Add/edit/delete
+- Weather data
+- Traffic data
+- Street View
+
+### 10. Models
+- All models
+- Assign jobs
+- Track commissions
+
+### 11. Pricing
+- Base rates
+- Add-ons
+- Distance fees
+- Payment toggles
+- Fee surcharges
+
+### 12. Settings
+- Email templates
+- Notifications
+- API keys
+- Theme
+
+### 13. System Health
+- Cron job status
+- Storage usage
+- Error logs
+- Backup status
+
+---
+
+# 📈 ANALYTICS & TRACKING {#analytics}
+
+## Event Tracking
+- Page views
+- Gallery views
+- Booking starts/completions
+- Payment success/failure
+- User registrations
+- Login attempts
+- Downloads
+
+## Dashboard Graphs
+- Views over time
+- Conversion funnel
+- Popular galleries
+- Revenue trends
+
+## Database Schema for Analytics
+```sql
+CREATE TABLE analytics_events (
+  id SERIAL PRIMARY KEY,
+  event_type VARCHAR(100),
+  user_id INT REFERENCES users(id),
+  resource_type VARCHAR(50),
+  resource_id INT,
+  ip_address VARCHAR(50),
+  user_agent TEXT,
+  device_type VARCHAR(20),
+  metadata JSONB,
+  created_at TIMESTAMP DEFAULT NOW()
+);
+```
+
+---
+
+# 🤖 AUTOMATION & BACKGROUND JOBS {#automation}
+
+## Cron Jobs
+
+| Job | Frequency | Purpose |
+|-----|-----------|---------|
+| Image processing | Every minute | Generate derivatives |
+| Email sending | Every minute | Queue processing |
+| Calendar sync | Every 5 minutes | Google Calendar |
+| Analytics aggregation | Hourly | Compile stats |
+| Reverse image scan | Daily | Copyright protection |
+| Backup | Daily | Database + R2 metadata |
+| Cookie scan | Continuous | Security monitoring |
+| Weather alerts | Every 6 hours | Upcoming shoots |
+
+## Event-Driven Automation
+- Booking created → Email + Calendar + Contract
+- Payment received → Confirmation + Calendar update
+- Contract signed → Enable payment
+- New message → Email notification
+- Image uploaded → Process derivatives + R2 upload
+
+---
+
+# 📧 EMAIL INTEGRATION {#email}
+
+## Email Types
+- OTP verification
+- Booking confirmation
+- Payment receipt
+- Reminder (1 week, 24h, 2h before)
+- Contract sent
+- Contract signed
+- Gallery delivered
+- Follow-up review request
+
+## SMTP Setup (Google Workspace)
+```env
+SMTP_HOST=smtp. gmail.com
+SMTP_USER=contact@tiredofdointm. com
+SMTP_PASS=<app-password>
+SMTP_PORT=587
+```
+
+## Email Tracking
+- Open tracking
+- Click tracking
+- Bounce handling
+
+---
+
+# 🗄️ DATABASE SCHEMA {#database}
+
+## Tables
+
+### users
+```sql
+CREATE TABLE users (
+  id SERIAL PRIMARY KEY,
+  username VARCHAR(50) UNIQUE,
+  email VARCHAR(255) UNIQUE NOT NULL,
+  role_id INT REFERENCES roles(id),
+  avatar_url TEXT,
+  legal_names JSONB,
+  emails JSONB,
+  ips JSONB,
+  device_fingerprints JSONB,
+  stripe_customer_id VARCHAR(255),
+  has_booked BOOLEAN DEFAULT FALSE,
+  first_booking_date TIMESTAMP,
+  created_at TIMESTAMP DEFAULT NOW(),
+  updated_at TIMESTAMP DEFAULT NOW(),
+  verified BOOLEAN DEFAULT FALSE,
+  last_login TIMESTAMP
+);
+```
+
+### roles
+```sql
+CREATE TABLE roles (
+  id SERIAL PRIMARY KEY,
+  name VARCHAR(50) UNIQUE NOT NULL,
+  display_name VARCHAR(100),
+  level INT NOT NULL,
+  permissions JSONB NOT NULL DEFAULT '{}'
+);
+```
+
+### sessions
+```sql
+CREATE TABLE sessions (
+  id SERIAL PRIMARY KEY,
+  user_id INT REFERENCES users(id),
+  token TEXT UNIQUE NOT NULL,
+  device_fingerprint TEXT,
+  ip_address VARCHAR(50),
+  user_agent TEXT,
+  expires_at TIMESTAMP NOT NULL,
+  created_at TIMESTAMP DEFAULT NOW()
+);
+```
+
+### galleries
+```sql
+CREATE TABLE galleries (
+  id SERIAL PRIMARY KEY,
+  title VARCHAR(255) NOT NULL,
+  description TEXT,
+  type VARCHAR(20) CHECK (type IN ('public', 'unlisted', 'private')),
+  category VARCHAR(50),
+  cover_image_id INT REFERENCES images(id),
+  created_by INT REFERENCES users(id),
+  shoot_date DATE,
+  location_id INT REFERENCES locations(id),
+  is_pinned BOOLEAN DEFAULT FALSE,
+  pin_order INT,
+  created_at TIMESTAMP DEFAULT NOW(),
+  updated_at TIMESTAMP DEFAULT NOW()
+);
+```
+
+### gallery_links
+```sql
+CREATE TABLE gallery_links (
+  id SERIAL PRIMARY KEY,
+  gallery_id INT REFERENCES galleries(id) ON DELETE CASCADE,
+  token VARCHAR(255) UNIQUE NOT NULL,
+  permissions JSONB,
+  expires_at TIMESTAMP,
+  created_at TIMESTAMP DEFAULT NOW()
+);
+```
+
+### images
+```sql
+CREATE TABLE images (
+  id SERIAL PRIMARY KEY,
+  gallery_id INT REFERENCES galleries(id) ON DELETE CASCADE,
+  uploader_id INT REFERENCES users(id),
+  filename VARCHAR(255),
+  caption TEXT,
+  location JSONB,
+  shoot_date DATE,
+  metadata JSONB,
+  phash TEXT,
+  is_pinned BOOLEAN DEFAULT FALSE,
+  pin_order INT,
+  created_at TIMESTAMP DEFAULT NOW()
+);
+```
+
+### image_versions
+```sql
+CREATE TABLE image_versions (
+  id SERIAL PRIMARY KEY,
+  image_id INT REFERENCES images(id) ON DELETE CASCADE,
+  type VARCHAR(20) CHECK (type IN ('raw', 'edited', 'thumb', 'web', 'mobile')),
+  r2_path TEXT NOT NULL,
+  r2_url TEXT,
+  hash TEXT,
+  is_watermarked BOOLEAN DEFAULT FALSE,
+  is_encrypted BOOLEAN DEFAULT FALSE,
+  created_at TIMESTAMP DEFAULT NOW()
+);
+```
+
+### bookings
+```sql
+CREATE TABLE bookings (
+  id SERIAL PRIMARY KEY,
+  unique_link VARCHAR(255) UNIQUE NOT NULL,
+  user_id INT REFERENCES users(id),
+  service_type VARCHAR(100),
+  date_start TIMESTAMP NOT NULL,
+  date_end TIMESTAMP NOT NULL,
+  duration_hours DECIMAL(4, 2),
+  location_id INT REFERENCES locations(id),
+  status VARCHAR(20) DEFAULT 'requested',
+  google_calendar_event_id TEXT,
+  contract_id INT REFERENCES contracts(id),
+  payment_id INT REFERENCES payments(id),
+  questionnaire_answers JSONB,
+  add_ons JSONB,
+  total_price DECIMAL(10, 2),
+  deposit_amount DECIMAL(10, 2),
+  notes TEXT,
+  created_at TIMESTAMP DEFAULT NOW(),
+  updated_at TIMESTAMP DEFAULT NOW()
+);
+```
+
+### payments
+```sql
+CREATE TABLE payments (
+  id SERIAL PRIMARY KEY,
+  booking_id INT REFERENCES bookings(id),
+  user_id INT REFERENCES users(id),
+  method VARCHAR(50),
+  provider VARCHAR(20),
+  provider_payment_id TEXT,
+  amount DECIMAL(10, 2),
+  fee_amount DECIMAL(10, 2),
+  currency VARCHAR(3) DEFAULT 'USD',
+  status VARCHAR(20),
+  is_deposit BOOLEAN DEFAULT TRUE,
+  refunded_amount DECIMAL(10, 2) DEFAULT 0,
+  created_at TIMESTAMP DEFAULT NOW()
+);
+```
+
+### contracts
+```sql
+CREATE TABLE contracts (
+  id SERIAL PRIMARY KEY,
+  template_id INT REFERENCES contract_templates(id),
+  booking_id INT,
+  user_id INT REFERENCES users(id),
+  title VARCHAR(255),
+  content TEXT NOT NULL,
+  signature_data JSONB,
+  status VARCHAR(20) DEFAULT 'pending',
+  signed_at TIMESTAMP,
+  created_at TIMESTAMP DEFAULT NOW()
+);
+```
+
+### messages
+```sql
+CREATE TABLE messages (
+  id SERIAL PRIMARY KEY,
+  thread_id INT REFERENCES message_threads(id),
+  sender_id INT REFERENCES users(id),
+  sender_email VARCHAR(255),
+  content TEXT NOT NULL,
+  source VARCHAR(20),
+  email_message_id TEXT,
+  read_at TIMESTAMP,
+  created_at TIMESTAMP DEFAULT NOW()
+);
+```
+
+### locations
+```sql
+CREATE TABLE locations (
+  id SERIAL PRIMARY KEY,
+  name VARCHAR(255),
+  address TEXT,
+  latitude DECIMAL(10, 8),
+  longitude DECIMAL(11, 8),
+  place_id VARCHAR(255),
+  notes TEXT,
+  weather_data JSONB,
+  traffic_data JSONB,
+  created_at TIMESTAMP DEFAULT NOW()
+);
+```
+
+### models
+```sql
+CREATE TABLE models (
+  id SERIAL PRIMARY KEY,
+  user_id INT REFERENCES users(id),
+  display_name VARCHAR(255),
+  portfolio_gallery_id INT REFERENCES galleries(id),
+  rates JSONB,
+  commission_rate DECIMAL(5, 2),
+  availability JSONB,
+  status VARCHAR(20) DEFAULT 'active',
+  created_at TIMESTAMP DEFAULT NOW()
+);
+```
+
+### testimonials
+```sql
+CREATE TABLE testimonials (
+  id SERIAL PRIMARY KEY,
+  client_name VARCHAR(255),
+  content TEXT,
+  rating INT,
+  is_visible BOOLEAN DEFAULT TRUE,
+  display_order INT,
+  created_at TIMESTAMP DEFAULT NOW()
+);
+```
+
+---
+
+# 🔌 API ENDPOINTS {#api}
+
+## Authentication
+```
+POST   /api/auth/request-otp     # Send OTP
+POST   /api/auth/verify-otp      # Verify OTP
+POST   /api/auth/google          # Google OAuth
+POST   /api/auth/logout          # Logout
+GET    /api/auth/session         # Check session
+```
+
+## Users
+```
+GET    /api/users/me             # Current user
+PUT    /api/users/me             # Update profile
+GET    /api/users                # List (admin)
+POST   /api/users                # Create (admin)
+GET    /api/users/: id            # Get user
+PUT    /api/users/:id            # Update user
+DELETE /api/users/:id            # Delete user
+```
+
+## Galleries
+```
+POST   /api/galleries            # Create
+GET    /api/galleries            # List
+GET    /api/galleries/:id        # Get
+PUT    /api/galleries/:id        # Update
+DELETE /api/galleries/: id        # Delete
+POST   /api/galleries/:id/pin    # Pin
+POST   /api/galleries/:id/link   # Generate link
+```
+
+## Images
+```
+POST   /api/images/upload        # Uploa

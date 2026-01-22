@@ -1,0 +1,1588 @@
+# 🚨 TIREDOFDOINTM — COMPLETE PRODUCTION MASTER SPECIFICATION V6 🚨
+## Full-Featured Photography Business Platform
+
+---
+
+# 📋 DOCUMENT OVERVIEW
+
+## Purpose
+This is the **COMPLETE, PRODUCTION-READY SPECIFICATION** for building the TiredOfDoinTM photography business platform.  Every feature, integration, database schema, API endpoint, and UI component is explicitly defined.  This document serves as the single source of truth for development. 
+
+## Delivery Requirements
+**DO NOT deliver this project unless ALL of the following are true:**
+
+- ✅ Every page loads without errors
+- ✅ Every API endpoint returns valid responses
+- ✅ Every form submits and processes correctly
+- ✅ Every animation runs at 60fps
+- ✅ Every database query executes without errors
+- ✅ Every file upload completes successfully
+- ✅ Every authentication flow works end-to-end
+- ✅ Every permission check is enforced
+- ✅ Mobile layout works on all screen sizes
+- ✅ Dark mode is default and comfortable (not blinding)
+- ✅ All integrations are connected and functional
+
+## Testing Protocol
+1. Run automated tests for all API endpoints
+2. Manual test every user flow
+3. Test on mobile devices (real or emulated)
+4. Test in both light and dark modes
+5. Test with slow network conditions
+6. Test error states (invalid input, network failures)
+7. Verify all console errors are resolved
+
+---
+
+# 🎯 PROJECT IDENTITY & BRAND
+
+## Brand Information
+| Property | Value |
+|----------|-------|
+| **Name** | `TiredOfDoinTM` (ONE WORD, stylized) |
+| **Domain** | `tiredofdointm.com` |
+| **Tagline** | Professional photography services |
+| **Business Type** | Photography studio, model management, creative agency |
+| **Contact Email** | `contact@tiredofdointm. com` |
+
+## Social Media
+| Platform | Handle/URL |
+|----------|------------|
+| Instagram (Primary) | `@tiredofdointm` → https://www.instagram.com/tiredofdointm/ |
+| Instagram (Secondary) | `@tiredflics` |
+| TikTok | `@tiredofdointm` |
+
+## Profile Picture URL
+```
+https://instagram.fcps3-1.fna.fbcdn. net/v/t51.2885-19/612483021_17897242272370559_4688585427133632962_n.jpg
+```
+
+## Platform Capabilities
+1. **Showcases Photography** — Beautiful galleries organized by category
+2. **Automates Booking** — Zero-touch scheduling with calendar integration
+3. **Handles Payments** — Deposits, invoices, multiple payment methods
+4. **Manages Contracts** — Digital signing, templates, legal compliance
+5. **Coordinates Models** — Job assignments, portfolios, commissions
+6. **Delivers Galleries** — Private client galleries with download options
+7. **Protects Assets** — RAW photo storage, watermarking, usage tracking
+8. **Tracks Analytics** — Revenue, views, conversions, performance
+
+---
+
+# 🔒 GLOBAL SYSTEM RULES
+
+## Rule 1: Permission-First Architecture
+Every request must: 
+1. Identify the user (session/token/guest)
+2. Determine their role
+3. Check permission for requested resource
+4. Allow OR deny with logging
+
+```
+Request → Identify User → Check Role → Verify Permission → Proceed/Deny
+```
+
+**Edge Cases:**
+- Expired session during action → Re-authenticate, retry
+- Role changed while logged in → Immediate permission refresh
+- Shared link access → Validate link token separately
+- API key access → Different permission path
+
+## Rule 2: Auth Gate on All Protected Routes
+Every navigation to protected pages must route through `/auth`:
+
+```
+User clicks /dashboard
+    ↓
+Redirect to /auth? next=/dashboard
+    ↓
+Validate session + role
+    ↓
+Success → Redirect to /dashboard
+Failure → Show login with next= preserved
+```
+
+## Rule 3: Data Classification
+
+### Public Data (Never Encrypted, Cacheable)
+| Data | Cache Duration |
+|------|----------------|
+| Public gallery thumbnails | 7 days |
+| Pricing information | 1 hour |
+| Testimonials | 1 day |
+| Homepage content | 1 day |
+
+### Private Data (Always Encrypted - AES-256-GCM)
+- User credentials
+- Session tokens
+- Payment data (Stripe handles)
+- RAW photographs
+- Private galleries
+- Contracts
+- Messages
+- Booking details
+
+## Rule 4: RAW vs Edited Image Separation
+
+### RAW Track
+- Original file (CR2, NEF, ARW, DNG)
+- Encrypted at rest
+- Never publicly accessible
+- Stored forever
+- Reserved for:  legal proof, AI training, ownership disputes
+
+### Edited Track
+- Optimized JPG/WebP
+- Multiple sizes (full, web, mobile, thumb)
+- Optional watermark
+- Public or private based on gallery settings
+
+### Storage Structure
+```
+R2 Bucket:  tiredproduction
+├── /raw/{gallery_id}/{image_id}/original.*
+├── /edited/{gallery_id}/{image_id}/
+│   ├── full.jpg
+│   ├── full_watermarked.jpg
+│   ├── web.jpg (1920px)
+│   ├── mobile.jpg (1080px)
+│   └── thumb.jpg (400px)
+└── /temp/{upload_session}/
+```
+
+## Rule 5: No Static UI
+Every visible element must have motion:
+- **Ambient**:  Subtle gradients, glow pulsing, parallax
+- **Interactive**: Hover states, click feedback, focus rings
+- **State**:  Loading shimmer, success animations, error shake
+- **Navigation**: Page transitions, modal animations, menu sweeps
+
+**Performance Rules:**
+- All animations 60fps
+- Use CSS transforms only
+- Respect `prefers-reduced-motion`
+- Durations under 500ms for interactions
+
+---
+
+# 🧱 TECHNICAL ARCHITECTURE
+
+## Technology Stack
+
+| Layer | Technology | Purpose |
+|-------|------------|---------|
+| Frontend | PHP 8.2 + Vanilla JS + CSS | Server-rendered + client hydration |
+| Backend | PHP 8.2 (FPM) | API services |
+| Database | PostgreSQL (DigitalOcean Managed) | Primary data store |
+| Cache | Redis | Sessions, caching, queues |
+| Storage | Cloudflare R2 | Image hosting |
+| Queue | Supervisor + Redis | Background jobs |
+| Email | Gmail API / SMTP | Transactional email |
+| Calendar | Google Calendar API | Availability sync |
+| Maps | Google Maps Platform | Location services |
+| Payments | Stripe (Live) | Payment processing |
+| Hosting | DigitalOcean VPS (Ubuntu 22.04) | Server infrastructure |
+| Web Server | Nginx | Request handling |
+| SSL | Let's Encrypt (Certbot) | HTTPS certificates |
+
+## Folder Structure (VPS-Ready)
+```
+/var/www/tiredofdointm/
+│
+├── public/                     # Web root (Nginx points here)
+│   ├── index.php               # Homepage + front controller
+│   ├── . htaccess               # URL rewriting
+│   ├── assets/
+│   │   ├── css/
+│   │   │   ├── main.css        # Dark mode + neon theme
+│   │   │   ├── animations.css  # All animation keyframes
+│   │   │   └── components.css  # Button, card, input styles
+│   │   ├── js/
+│   │   │   ├── app.js          # Main application
+│   │   │   ├── auth.js         # Authentication handling
+│   │   │   ├── gate.js         # Gate "67" system
+│   │   │   ├── slideshow.js    # GTA V-style hero animations
+│   │   │   ├── gallery.js      # Gallery interactions
+│   │   │   ├── booking.js      # Booking workflow
+│   │   │   ├── uploader.js     # Image upload + processing
+│   │   │   └── dashboard.js    # Admin dashboard
+│   │   ├── images/
+│   │   │   └── placeholder.jpg
+│   │   └── fonts/
+│   └── uploads/                # Temporary uploads
+│       └── temp/
+│
+├── app/
+│   ├── Controllers/
+│   │   ├── AuthController.php
+│   │   ├── UserController.php
+│   │   ├── GalleryController. php
+│   │   ├── BookingController.php
+│   │   ├── PaymentController.php
+│   │   ├── ContractController.php
+│   │   ├── MessageController.php
+│   │   ├── CalendarController.php
+│   │   ├── LocationController.php
+│   │   ├── ModelController.php
+│   │   ├── AnalyticsController.php
+│   │   └── DashboardController.php
+│   │
+│   ├── Models/
+│   │   ├── User.php
+│   │   ├── Role.php
+│   │   ├── Session.php
+│   │   ├── Gallery.php
+│   │   ├── Image.php
+│   │   ├── ImageVersion.php
+│   │   ├── Booking.php
+│   │   ├── Payment.php
+│   │   ├── Contract.php
+│   │   ├── ContractTemplate.php
+│   │   ├── Message.php
+│   │   ├── MessageThread.php
+│   │   ├── Location.php
+│   │   ├── Model.php
+│   │   ├── ModelJob.php
+│   │   ├── Testimonial.php
+│   │   └── AnalyticsEvent.php
+│   │
+│   ├── Services/
+│   │   ├── R2Service.php           # Cloudflare R2 uploads
+│   │   ├── ImageProcessing.php     # Crop/rotate/filter/optimization
+│   │   ├── EmailService.php        # SMTP notifications
+│   │   ├── GoogleCalendarService.php
+│   │   ├── GoogleOAuthService.php
+│   │   ├── StripeService.php
+│   │   ├── ContractService.php     # PDF generation + signing
+│   │   ├── WeatherService.php
+│   │   └── AnalyticsService.php
+│   │
+│   ├── Middleware/
+│   │   ├── AuthMiddleware.php
+│   │   ├── RoleMiddleware.php
+│   │   ├── GateMiddleware.php
+│   │   ├── CsrfMiddleware.php
+│   │   └── RateLimitMiddleware.php
+│   │
+│   └── Utils/
+│       ├── Auth.php
+│       ├── Validator.php
+│       ├── Helpers.php
+│       ├── Logger.php
+│       ├── Encryption.php
+│       └── Database.php
+│
+├── views/
+│   ├── layouts/
+│   │   ├── main.php            # Main layout with menu
+│   │   ├── dashboard.php       # Dashboard layout
+│   │   └── auth.php            # Auth pages layout
+│   │
+│   ├── pages/
+│   │   ├── home.php
+│   │   ├── gallery.php
+│   │   ├── gallery-category.php
+│   │   ├── gallery-single.php
+│   │   ├── booking.php
+│   │   ├── calendar.php
+│   │   ├── contact.php
+│   │   ├── rates.php
+│   │   ├── login.php
+│   │   ├── signup.php
+│   │   ├── profile.php
+│   │   └── client-gallery.php
+│   │
+│   ├── dashboard/
+│   │   ├── index.php           # Overview
+│   │   ├── calendar.php
+│   │   ├── bookings.php
+│   │   ├── clients.php
+│   │   ├── messages.php
+│   │   ├── contracts.php
+│   │   ├── galleries.php
+│   │   ├── billing.php
+│   │   ├── locations.php
+│   │   ├── models.php
+│   │   ├── pricing.php
+│   │   ├── analytics.php
+│   │   └── settings.php
+│   │
+│   ├── components/
+│   │   ├── menu.php
+│   │   ├── gate.php
+│   │   ├── slideshow.php
+│   │   ├── gallery-grid.php
+│   │   ├── booking-form.php
+│   │   ├── calendar-widget.php
+│   │   └── notification.php
+│   │
+│   ├── emails/
+│   │   ├── otp.php
+│   │   ├── booking-confirmation.php
+│   │   ├── payment-receipt.php
+│   │   ├── reminder.php
+│   │   ├── contract-sent.php
+│   │   ├── contract-signed.php
+│   │   └── gallery-delivered.php
+│   │
+│   └── errors/
+│       ├── 403.php
+│       ├── 404.php
+│       └── 500.php
+│
+├── storage/
+│   ├── logs/
+│   ├── cache/
+│   └── sessions/
+│
+├── config/
+│   ├── app.php
+│   ├── database.php
+│   ├── routes.php
+│   └── . env                    # NEVER commit to git
+│
+├── jobs/
+│   ├── process_images.php
+│   ├── send_notifications.php
+│   ├── aggregate_analytics.php
+│   ├── sync_google_calendar.php
+│   ├── backup_database.php
+│   └── cleanup_temp. php
+│
+├── migrations/
+│   ├── 001_create_roles.sql
+│   ├── 002_create_users.sql
+│   ├── 003_create_sessions.sql
+│   ├── 004_create_galleries.sql
+│   ├── 005_create_images.sql
+│   ├── 006_create_bookings.sql
+│   ├── 007_create_payments.sql
+│   ├── 008_create_contracts.sql
+│   ├── 009_create_messages.sql
+│   ├── 010_create_locations.sql
+│   ├── 011_create_models.sql
+│   ├── 012_create_analytics.sql
+│   └── seed_admin_users.sql
+│
+├── vendor/                     # Composer packages
+├── composer.json
+├── composer.lock
+└── README.md
+```
+
+---
+
+# 🔑 CREDENTIALS & CONFIGURATION
+
+## Environment File (. env)
+```env
+# Application
+APP_NAME=TiredOfDoinTM
+APP_URL=https://tiredofdointm.com
+APP_ENV=production
+APP_DEBUG=false
+
+# Gate System
+GATE_PASSWORD=67
+GATE_SECRET=<generate-random-64-char-string>
+
+# Showcase Settings
+SHOWCASE_INTERVAL=6000
+SHOWCASE_FAST_SWAP=500
+
+# Database (DigitalOcean Managed PostgreSQL)
+DB_CONNECTION=pgsql
+DB_HOST=baas-db-4408115-do-user-31921031-0.k. db.ondigitalocean.com
+DB_PORT=25060
+DB_NAME=defaultdb
+DB_USER=doadmin
+DB_PASS=AVNS_bzOAqQ9dOwKEgeUD1bF
+DB_SSL=require
+
+# Cloudflare R2
+R2_ACCOUNT_ID=34ef3693f46916ef29f68136315492bf
+R2_ACCESS_KEY=c7395833bbc2546f50c6f92f87a3df44
+R2_SECRET_KEY=0aa7522f5ca67877e3e8387636235998c9a285ed6f8fd2cbb2105d88a70b213c
+R2_BUCKET=tiredproduction
+R2_ENDPOINT=https://34ef3693f46916ef29f68136315492bf.r2.cloudflarestorage.com
+R2_TOKEN=Heyd3h2b9WQ-EOvDOXPqh0C3tJ7Vw8OKjWjM9sSv
+R2_PUBLIC_URL=https://images.tiredofdointm. com
+
+# Google APIs
+GOOGLE_CLIENT_ID=666840192160-n4tp7qu7p2i8sp6qpv146ae0tb8vhdc2.apps.googleusercontent.com
+GOOGLE_CLIENT_SECRET=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
+GOOGLE_CALENDAR_ID=c_99456931c63b4bd51e9ae38725ffabdf79b4caa4afe48ab090b09d4aa0610a19@group.calendar.google.com
+GOOGLE_API_KEY=AIzaSyCEoPyJIbtJnheIG3SemBghTlqKH0uTL2c
+
+# Stripe (LIVE)
+STRIPE_PUBLISHABLE_KEY=pk_live_51Srp7j5aZvjqzgKXCEzSeS3y6ZpYun6eRNfXwdMiMkQrRacX7Qt9BFlNpHcTJGjSbQyBF5VfsWJHn6LG9lw0fDAj003d7RdCPI
+STRIPE_SECRET_KEY=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
+STRIPE_WEBHOOK_SECRET=whsec_xxxxx
+
+# SMTP (Google Workspace)
+SMTP_HOST=smtp.gmail.com
+SMTP_USER=contact@tiredofdointm. com
+SMTP_PASS=<app-password>
+SMTP_PORT=587
+SMTP_FROM_NAME=TiredOfDoinTM
+
+# Admin Auto-Register Emails (comma-separated)
+ADMIN_EMAILS=maxudelep@gmail.com,taeveyrust@gmail.com,goshakucherenkobeast@gmail.com,lana8186296366@gmail.com,justforvalorant41@gmail.com
+
+# Encryption
+ENCRYPTION_KEY=<generate-random-32-char-string>
+```
+
+---
+
+# 🎨 DESIGN SYSTEM
+
+## Color Palette (Muted & Dark-Friendly)
+
+### CSS Variables
+```css
+:root {
+  /* === BACKGROUNDS (Dark Mode - DEFAULT) === */
+  /* NOT pure black - softer on eyes */
+  --bg-base: #0a0a0f;
+  --bg-surface: #12121a;
+  --bg-elevated: #1a1a24;
+  --bg-hover: #22222e;
+  --bg-active: #2a2a38;
+  
+  /* Glass effects */
+  --bg-glass:  rgba(18, 18, 26, 0.85);
+  --bg-glass-heavy: rgba(10, 10, 15, 0.95);
+  
+  /* === TEXT (NOT pure white - easier on eyes) === */
+  --text-primary: #e4e4e7;
+  --text-secondary:  #a1a1aa;
+  --text-tertiary: #71717a;
+  --text-muted: #52525b;
+  --text-disabled: #3f3f46;
+  
+  /* === ACCENT COLORS (Muted Violet) === */
+  --violet-50: #f3f2ff;
+  --violet-100: #e9e7ff;
+  --violet-200: #d4d0ff;
+  --violet-300: #b5aeff;
+  --violet-400: #9385f9;
+  --violet-500: #7c6bf0;  /* Primary */
+  --violet-600: #6a54e0;
+  --violet-700: #5a44c9;
+  --violet-800: #4a38a3;
+  --violet-900: #3d3085;
+  --violet-950: #251c56;
+  
+  /* === SECONDARY COLORS === */
+  /* Coral */
+  --coral-400: #f08b6d;
+  --coral-500: #e26d4a;
+  --coral-600: #c9523a;
+  
+  /* Cyan */
+  --cyan-400: #30d0ce;
+  --cyan-500: #15b3b1;
+  
+  /* === SEMANTIC COLORS === */
+  --success: #4ade80;
+  --success-bg: rgba(34, 197, 94, 0.1);
+  --warning: #fbbf24;
+  --warning-bg: rgba(251, 191, 36, 0.1);
+  --error: #f87171;
+  --error-bg: rgba(239, 68, 68, 0.1);
+  --info: #60a5fa;
+  --info-bg: rgba(59, 130, 246, 0.1);
+  
+  /* === BORDERS === */
+  --border-subtle: rgba(255, 255, 255, 0.06);
+  --border-default: rgba(255, 255, 255, 0.1);
+  --border-strong: rgba(255, 255, 255, 0.15);
+  --border-focus: var(--violet-500);
+  
+  /* === GLOWS (Subtle, not blinding) === */
+  --glow-violet-subtle: 0 0 20px rgba(124, 107, 240, 0.15);
+  --glow-violet-medium: 0 0 30px rgba(124, 107, 240, 0.25);
+  --glow-violet-strong: 0 0 40px rgba(124, 107, 240, 0.35);
+  
+  /* === SHADOWS === */
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
+  --shadow-md: 0 4px 8px rgba(0, 0, 0, 0.3);
+  --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.4);
+  --shadow-xl: 0 16px 48px rgba(0, 0, 0, 0.5);
+  
+  /* === TYPOGRAPHY === */
+  --font-display: 'Space Grotesk', system-ui, sans-serif;
+  --font-body: 'Inter', system-ui, sans-serif;
+  --font-mono:  'JetBrains Mono', monospace;
+  
+  /* Font sizes */
+  --text-xs: 0.75rem;
+  --text-sm: 0.875rem;
+  --text-base: 1rem;
+  --text-lg: 1.125rem;
+  --text-xl: 1.25rem;
+  --text-2xl: 1.5rem;
+  --text-3xl: 1.875rem;
+  --text-4xl: 2.25rem;
+  --text-5xl: 3rem;
+  --text-6xl: 3.75rem;
+  
+  /* === SPACING === */
+  --space-1: 0.25rem;
+  --space-2: 0.5rem;
+  --space-3: 0.75rem;
+  --space-4: 1rem;
+  --space-5: 1.25rem;
+  --space-6: 1.5rem;
+  --space-8: 2rem;
+  --space-10: 2.5rem;
+  --space-12: 3rem;
+  --space-16: 4rem;
+  --space-20: 5rem;
+  
+  /* === BORDER RADIUS === */
+  --radius-sm: 0.25rem;
+  --radius-md: 0.375rem;
+  --radius-lg: 0.5rem;
+  --radius-xl: 0.75rem;
+  --radius-2xl: 1rem;
+  --radius-3xl:  1.5rem;
+  --radius-full: 9999px;
+  
+  /* === TRANSITIONS === */
+  --ease-default: cubic-bezier(0.4, 0, 0.2, 1);
+  --ease-in: cubic-bezier(0.4, 0, 1, 1);
+  --ease-out: cubic-bezier(0, 0, 0.2, 1);
+  --ease-bounce: cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+```
+
+### Light Mode (Optional)
+```css
+[data-theme="light"] {
+  --bg-base: #f8f7f4;
+  --bg-surface:  #ffffff;
+  --bg-elevated: #ffffff;
+  --bg-hover:  #f3f2ef;
+  --bg-active:  #e8e6e1;
+  
+  --text-primary: #1c1917;
+  --text-secondary:  #44403c;
+  --text-tertiary: #78716c;
+  --text-muted: #a8a29e;
+  
+  --border-subtle: rgba(0, 0, 0, 0.04);
+  --border-default:  rgba(0, 0, 0, 0.08);
+  --border-strong: rgba(0, 0, 0, 0.12);
+}
+```
+
+---
+
+# ✨ ANIMATION SPECIFICATIONS
+
+## Animation Keyframes
+```css
+/* Fade In */
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+/* Fade In Up */
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Scale In */
+@keyframes scaleIn {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+/* Slide In Left */
+@keyframes slideInLeft {
+  from {
+    opacity: 0;
+    transform:  translateX(-100%);
+  }
+  to {
+    opacity: 1;
+    transform:  translateX(0);
+  }
+}
+
+/* Slide In Right */
+@keyframes slideInRight {
+  from {
+    opacity: 0;
+    transform:  translateX(100%);
+  }
+  to {
+    opacity: 1;
+    transform:  translateX(0);
+  }
+}
+
+/* Pulse Glow */
+@keyframes pulseGlow {
+  0%, 100% {
+    box-shadow: 0 0 20px rgba(124, 107, 240, 0.3);
+  }
+  50% {
+    box-shadow: 0 0 40px rgba(124, 107, 240, 0.5);
+  }
+}
+
+/* Float */
+@keyframes float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform:  translateY(-10px); }
+}
+
+/* Shake (errors) */
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  10%, 30%, 50%, 70%, 90% { transform:  translateX(-5px); }
+  20%, 40%, 60%, 80% { transform: translateX(5px); }
+}
+
+/* Skeleton Shimmer */
+@keyframes shimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+/* Count Up Numbers */
+@keyframes countUp {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Spin */
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+```
+
+## Animation Timing
+| Animation | Duration | Easing |
+|-----------|----------|--------|
+| Page transitions | 300ms | ease-out |
+| Card hover | 200ms | ease-default |
+| Button press | 100ms | ease-bounce |
+| Modal open | 250ms | ease-bounce |
+| Menu sweep | 400ms | ease-out |
+| Chart entrance | 800ms | ease-out (staggered) |
+| Stat counter | 1200ms | ease-out |
+| Loading shimmer | 1500ms | linear (loop) |
+| Gallery crossfade | 400ms | ease-out |
+| Notification pop | 250ms | ease-bounce |
+
+---
+
+# 🔐 AUTHENTICATION SYSTEM
+
+## Method 1: Email OTP (Primary)
+
+### Flow Diagram
+```
+1. User enters email
+       │
+       ▼
+2. System checks if email exists
+   ├── EXISTS → Login flow
+   └── NOT EXISTS → Signup flow
+       │
+       ▼
+3. Generate 6-character OTP (alphanumeric)
+       │
+       ▼
+4. Store OTP in database: 
+   - email
+   - otp_hash (bcrypt)
+   - expires_at (+10 minutes)
+   - attempts (0)
+   - ip_address
+   - user_agent
+       │
+       ▼
+5. Send email with OTP (NEVER show on screen)
+       │
+       ▼
+6. User enters OTP from email
+       │
+       ▼
+7. Validate: 
+   ├── Check:  Not expired
+   ├── Check: Attempts < 5
+   └── Check: Hash matches
+       │
+       ├── INVALID → Increment attempts, show error
+       │
+       ▼ VALID
+8. Create/update user + session
+       │
+       ▼
+9. Redirect to `next` parameter or home
+```
+
+### OTP Generation (PHP)
+```php
+function generateOTP(): string {
+    // Removed ambiguous characters:  0, O, I, 1, L
+    $chars = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
+    $otp = '';
+    for ($i = 0; $i < 6; $i++) {
+        $otp .= $chars[random_int(0, strlen($chars) - 1)];
+    }
+    return $otp;
+}
+```
+
+### OTP Email Template
+```html
+Subject: Your TiredOfDoinTM verification code
+
+<div style="font-family: Inter, sans-serif; max-width: 400px; margin: 0 auto;">
+    <h1 style="font-size: 24px; color: #e4e4e7;">Your verification code</h1>
+    <div style="font-size: 36px; letter-spacing: 8px; color: #7c6bf0; 
+                font-family: monospace; padding: 20px; background: #12121a; 
+                border-radius: 12px; text-align: center;">
+        {{OTP}}
+    </div>
+    <p style="color: #71717a; font-size: 14px; margin-top: 20px;">
+        This code expires in 10 minutes. <br>
+        If you didn't request this, ignore this email.
+    </p>
+    <p style="color:  #52525b; font-size: 12px;">— TiredOfDoinTM</p>
+</div>
+```
+
+## Method 2: Google OAuth
+
+### Flow
+```
+1. User clicks "Sign in with Google"
+       │
+       ▼
+2. Redirect to Google consent screen
+   - Scopes: email, profile
+   - State: encrypted session identifier
+       │
+       ▼
+3. User grants permission
+       │
+       ▼
+4. Google redirects to /auth/google/callback
+       │
+       ▼
+5. Exchange code for tokens
+       │
+       ▼
+6. Extract user info from ID token
+       │
+       ▼
+7. Find or create user: 
+   ├── Search by google_id
+   ├── Then search by email
+   ├── If found:  Link google_id if new
+   └── If not found: Create new user
+       │
+       ▼
+8. Create session, redirect
+```
+
+## Session Management
+
+### Session Creation (PHP)
+```php
+function createSession(User $user, Request $request): Session {
+    $sessionToken = bin2hex(random_bytes(32));
+    $fingerprint = generateDeviceFingerprint($request);
+    $expiresAt = time() + (30 * 24 * 60 * 60); // 30 days
+    
+    $session = Session::create([
+        'user_id' => $user->id,
+        'token_hash' => password_hash($sessionToken, PASSWORD_DEFAULT),
+        'device_fingerprint' => $fingerprint,
+        'ip_address' => $request->ip(),
+        'user_agent' => $request->userAgent(),
+        'expires_at' => date('Y-m-d H: i:s', $expiresAt)
+    ]);
+    
+    setcookie('session', $sessionToken, [
+        'expires' => $expiresAt,
+        'path' => '/',
+        'domain' => 'tiredofdointm.com',
+        'secure' => true,
+        'httponly' => true,
+        'samesite' => 'Lax'
+    ]);
+    
+    return $session;
+}
+
+function generateDeviceFingerprint(Request $request): string {
+    $components = [
+        $request->header('User-Agent'),
+        $request->header('Accept-Language'),
+        $request->header('Accept-Encoding'),
+    ];
+    
+    return substr(hash('sha256', implode('|', $components)), 0, 32);
+}
+```
+
+### Session Validation (Every Request)
+```php
+function validateSession(Request $request): ?User {
+    $token = $_COOKIE['session'] ?? null;
+    if (!$token) return null;
+    
+    $sessions = Session::where('expires_at', '>', date('Y-m-d H: i:s'))->get();
+    
+    foreach ($sessions as $session) {
+        if (password_verify($token, $session->token_hash)) {
+            // Validate fingerprint (optional)
+            $currentFingerprint = generateDeviceFingerprint($request);
+            if ($session->device_fingerprint !== $currentFingerprint) {
+                logSecurityEvent('fingerprint_mismatch', $session->user_id);
+            }
+            
+            return User::find($session->user_id);
+        }
+    }
+    
+    return null;
+}
+```
+
+## Admin Auto-Seeding
+```php
+// Run on first deploy or via CLI command
+function seedAdminUsers(): void {
+    $adminEmails = explode(',', getenv('ADMIN_EMAILS'));
+    $adminRole = Role::where('name', 'admin')->first();
+    
+    foreach ($adminEmails as $email) {
+        $email = trim($email);
+        $existing = User::where('email', $email)->first();
+        
+        if (!$existing) {
+            User::create([
+                'email' => $email,
+                'role_id' => $adminRole->id,
+                'username' => explode('@', $email)[0],
+                'email_verified' => true,
+                'created_by' => 'system_seed'
+            ]);
+            echo "Created admin:  {$email}\n";
+        } elseif ($existing->role_id !== $adminRole->id) {
+            $existing->update(['role_id' => $adminRole->id]);
+            echo "Upgraded to admin: {$email}\n";
+        }
+    }
+}
+```
+
+---
+
+# 🔐 GATE SYSTEM ("67")
+
+## Purpose
+Simple password gate for friends/family access during development/soft launch.
+
+## User Experience Flow
+```
+1. User navigates to site
+       │
+       ▼
+2. Page begins loading normally
+       │
+       ▼
+3. Over 1-2 seconds, screen progressively blurs
+       │
+       ▼
+4. Sleek input panel slides up from bottom
+       │
+       ▼
+5. User types "67"
+       │
+       ├── CORRECT → Blur fades, panel slides down, site accessible
+       └── INCORRECT → Shake animation, red glow, try again
+```
+
+## HTML Structure
+```html
+<!-- Gate Overlay -->
+<div id="gate-overlay" class="gate-overlay">
+    <div id="gate-panel" class="gate-panel">
+        <div class="gate-icon">🔒</div>
+        <p class="gate-text">Enter access code</p>
+        <input type="password" 
+               id="gate-input" 
+               class="gate-input" 
+               maxlength="4" 
+               autocomplete="off"
+               autofocus>
+        <p class="gate-hint">Friends & Family Only</p>
+    </div>
+</div>
+```
+
+## CSS Styles
+```css
+.gate-overlay {
+    position:  fixed;
+    inset: 0;
+    backdrop-filter: blur(0px);
+    background: rgba(0, 0, 0, 0);
+    transition: all 2s var(--ease-out);
+    z-index: 9998;
+    pointer-events: none;
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
+}
+
+.gate-overlay.active {
+    backdrop-filter: blur(30px);
+    background: rgba(0, 0, 0, 0.3);
+    pointer-events: all;
+}
+
+.gate-panel {
+    transform: translateY(100%);
+    transition: transform 0.5s var(--ease-bounce);
+    background: var(--bg-glass);
+    backdrop-filter: blur(30px);
+    border: 1px solid var(--border-default);
+    border-radius: var(--radius-3xl) var(--radius-3xl) 0 0;
+    padding: var(--space-12) var(--space-16);
+    text-align: center;
+    box-shadow: 0 -10px 40px rgba(0, 0, 0, 0.3),
+                0 0 60px rgba(124, 107, 240, 0.2);
+}
+
+.gate-overlay.active .gate-panel {
+    transform: translateY(0);
+}
+
+.gate-icon {
+    font-size: 3rem;
+    margin-bottom:  var(--space-4);
+}
+
+.gate-text {
+    font-family: var(--font-display);
+    font-size: var(--text-xl);
+    color: var(--text-primary);
+    margin-bottom: var(--space-6);
+}
+
+.gate-input {
+    font-family: var(--font-mono);
+    font-size: var(--text-5xl);
+    letter-spacing: 1rem;
+    text-align: center;
+    background: transparent;
+    border: 2px solid var(--border-strong);
+    border-radius: var(--radius-xl);
+    color: var(--text-primary);
+    padding: var(--space-6) var(--space-10);
+    width: 200px;
+    -webkit-text-security: disc;
+    transition: all 0.3s ease;
+}
+
+.gate-input:focus {
+    outline: none;
+    border-color: var(--violet-500);
+    box-shadow: var(--glow-violet-medium);
+}
+
+.gate-input. error {
+    border-color: var(--error);
+    animation: shake 0.5s ease-in-out;
+    box-shadow: 0 0 30px rgba(239, 68, 68, 0.5);
+}
+
+.gate-input. success {
+    border-color:  var(--success);
+    box-shadow: 0 0 30px rgba(34, 197, 94, 0.5);
+}
+
+.gate-hint {
+    font-size: var(--text-sm);
+    color: var(--text-muted);
+    margin-top: var(--space-6);
+}
+```
+
+## JavaScript Implementation
+```javascript
+// gate.js
+class GateSystem {
+    constructor() {
+        this.overlay = document.getElementById('gate-overlay');
+        this.input = document.getElementById('gate-input');
+        this.isUnlocked = this.checkGateCookie();
+        
+        if (!this.isUnlocked) {
+            this.init();
+        }
+    }
+    
+    checkGateCookie() {
+        const cookie = document.cookie
+            .split('; ')
+            .find(row => row.startsWith('gate_pass='));
+        
+        if (!cookie) return false;
+        
+        // Cookie exists, verify with server
+        return true; // Server validates on each request
+    }
+    
+    init() {
+        // Show gate after delay
+        setTimeout(() => {
+            this.overlay.classList.add('active');
+        }, 100);
+        
+        // Listen for input
+        this.input.addEventListener('input', (e) => {
+            if (e.target.value.length >= 2) {
+                this.validate(e.target.value);
+            }
+        });
+        
+        this.input.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                this. validate(this.input.value);
+            }
+        });
+    }
+    
+    async validate(password) {
+        try {
+            const response = await fetch('/api/gate/validate', {
+                method: 'POST',
+                headers: {
+                    'Content-Type':  'application/json',
+                    'X-CSRF-Token': document.querySelector('meta[name="csrf-token"]').content
+                },
+                body: JSON.stringify({ password })
+            });
+            
+            if (response. ok) {
+                this.unlock();
+            } else {
+                this.showError();
+            }
+        } catch (error) {
+            console.error('Gate validation failed:', error);
+            this.showError();
+        }
+    }
+    
+    unlock() {
+        this.input.classList.add('success');
+        
+        setTimeout(() => {
+            this.overlay.classList.remove('active');
+            
+            setTimeout(() => {
+                this.overlay.remove();
+            }, 500);
+        }, 300);
+    }
+    
+    showError() {
+        this.input.classList.add('error');
+        this.input.value = '';
+        
+        setTimeout(() => {
+            this.input. classList.remove('error');
+            this.input.focus();
+        }, 500);
+    }
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+    new GateSystem();
+});
+```
+
+## Server-Side Validation (PHP)
+```php
+// api/gate/validate.php
+function validateGate(Request $request): Response {
+    $password = $request->input('password');
+    
+    // Constant-time comparison to prevent timing attacks
+    $expected = getenv('GATE_PASSWORD'); // "67"
+    
+    if (! hash_equals($expected, $password)) {
+        return response()->json(['error' => 'Invalid'], 401);
+    }
+    
+    // Create HMAC-signed cookie
+    $timestamp = time();
+    $expires = $timestamp + (30 * 24 * 60 * 60); // 30 days
+    $payload = "{$timestamp}:{$expires}";
+    $signature = hash_hmac('sha256', $payload, getenv('GATE_SECRET'));
+    
+    setcookie('gate_pass', "{$payload}:{$signature}", [
+        'expires' => $expires,
+        'path' => '/',
+        'domain' => 'tiredofdointm. com',
+        'secure' => true,
+        'httponly' => true,
+        'samesite' => 'Lax'
+    ]);
+    
+    return response()->json(['success' => true]);
+}
+
+// Middleware to check gate
+function gateMiddleware(Request $request, Closure $next): Response {
+    $cookie = $_COOKIE['gate_pass'] ??  null;
+    
+    if (! $cookie) {
+        // Allow gate page itself
+        if ($request->path() === '/' || str_starts_with($request->path(), '/api/gate')) {
+            return $next($request);
+        }
+        return redirect('/');
+    }
+    
+    // Validate cookie signature
+    $parts = explode(':', $cookie);
+    if (count($parts) !== 3) {
+        setcookie('gate_pass', '', time() - 3600, '/');
+        return redirect('/');
+    }
+    
+    [$timestamp, $expires, $signature] = $parts;
+    
+    // Check expiration
+    if (time() > (int)$expires) {
+        setcookie('gate_pass', '', time() - 3600, '/');
+        return redirect('/');
+    }
+    
+    // Verify signature
+    $expectedSignature = hash_hmac('sha256', "{$timestamp}:{$expires}", getenv('GATE_SECRET'));
+    if (!hash_equals($expectedSignature, $signature)) {
+        setcookie('gate_pass', '', time() - 3600, '/');
+        return redirect('/');
+    }
+    
+    return $next($request);
+}
+```
+
+---
+
+# 👤 ROLE & PERMISSION SYSTEM
+
+## Role Hierarchy
+```
+ADMIN (100)         ← Full system access
+    ↑
+MANAGER (80)        ← Business operations
+    ↑
+STAFF (50)          ← Limited operations
+    ↑
+PHOTOGRAPHER (30)   ← External photographers
+    ↑
+MODEL (25)          ← Portfolio, jobs
+    ↑
+CLIENT (20)         ← Booking, own galleries
+    ↑
+REGISTERED (10)     ← Basic account
+    ↑
+GUEST (0)           ← Public only
+```
+
+## Database:  Roles Table
+```sql
+CREATE TABLE roles (
+    id SERIAL PRIMARY KEY,
+    name VARCHAR(50) UNIQUE NOT NULL,
+    display_name VARCHAR(100),
+    level INT NOT NULL,
+    permissions JSONB NOT NULL DEFAULT '{}',
+    created_at TIMESTAMP DEFAULT NOW()
+);
+
+INSERT INTO roles (name, display_name, level, permissions) VALUES
+('guest', 'Guest', 0, '{"view_public":  true}'),
+('registered', 'Registered', 10, '{"view_public": true, "send_messages": true}'),
+('client', 'Client', 20, '{"view_public": true, "send_messages": true, "view_own_galleries": true, "manage_own_bookings": true}'),
+('model', 'Model', 25, '{"view_public": true, "send_messages": true, "manage_portfolio": true, "view_jobs": true}'),
+('photographer', 'Photographer', 30, '{"view_public": true, "send_messages": true, "view_assigned_shoots": true}'),
+('staff', 'Staff', 50, '{"dashboard_access": true, "manage_galleries": true, "view_bookings": true}'),
+('manager', 'Manager', 80, '{"dashboard_access": true, "manage_all":  true, "manage_users": true}'),
+('admin', 'Administrator', 100, '{"*": true}');
+```
+
+## Permission Matrix
+
+### Page Access
+| Page | Guest | Registered | Client | Model | Staff | Manager | Admin |
+|------|-------|------------|--------|-------|-------|---------|-------|
+| / (Home) | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| /gallery | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| /rates | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| /contact | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| /booking | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| /calendar | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| /profile | ❌ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| /messages | ❌ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| /my-bookings | ❌ | ❌ | ✅ | ❌ | ✅ | ✅ | ✅ |
+| /my-galleries | ❌ | ❌ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| /models | ❌ | View | View | ✅ | ✅ | ✅ | ✅ |
+| /dashboard | ❌ | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ |
+| /dashboard/settings | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ✅ |
+
+### Action Permissions
+| Action | Guest | Registered | Client | Model | Staff | Manager | Admin |
+|--------|-------|------------|--------|-------|-------|---------|-------|
+| View public galleries | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| Request booking | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| Send message | ❌ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| Download images (own) | ❌ | ❌ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| Upload images | ❌ | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ |
+| Create gallery | ❌ | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ |
+| Pin images | ❌ | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ |
+| Edit any gallery | ❌ | ❌ | ❌ | ❌ | ❌ | ✅ | ✅ |
+| Delete gallery | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ✅ |
+| Manage bookings | ❌ | ❌ | Own | ❌ | View | ✅ | ✅ |
+| Set availability | ❌ | ❌ | ❌ | Own | ❌ | ✅ | ✅ |
+| Create contracts | ❌ | ❌ | ❌ | ❌ | ❌ | ✅ | ✅ |
+| Create invoices | ❌ | ❌ | ❌ | ❌ | ❌ | ✅ | ✅ |
+| Manage users | ❌ | ❌ | ❌ | ❌ | ❌ | View | ✅ |
+| View RAW images | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ✅ |
+| System settings | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ✅ |
+
+## Permission Middleware (PHP)
+```php
+class RoleMiddleware {
+    public function handle(Request $request, Closure $next, string $permission): Response {
+        $user = $request->user();
+        
+        // Guest handling
+        if (!$user) {
+            if ($permission === 'view_public') {
+                return $next($request);
+            }
+            
+            $nextUrl = urlencode($request->fullUrl());
+            return redirect("/login?next={$nextUrl}");
+        }
+        
+        $role = Role::find($user->role_id);
+        $permissions = $role->permissions;
+        
+        // Admin wildcard
+        if (isset($permissions['*']) && $permissions['*']) {
+            return $next($request);
+        }
+        
+        // Check specific permission
+        if (isset($permissions[$permission]) && $permissions[$permission]) {
+            return $next($request);
+        }
+        
+        // Permission denied
+        Logger::security('permission_denied', [
+            'user_id' => $user->id,
+            'permission' => $permission,
+            'route' => $request->path()
+        ]);
+        
+        return response()->view('errors/403', [], 403);
+    }
+}
+```
+
+---
+
+# 🧭 NAVIGATION & MENU SYSTEM
+
+## Menu Structure
+```
+📂 Gallery (header expands submenu, NOT clickable)
+├── Personal        → /gallery/personal
+├── Product         → /gallery/product
+├── Group           → /gallery/group
+├── Event           → /gallery/event
+└── Misc            → /gallery/misc
+
+📂 Socials (header NOT clickable)
+├── Instagram       → https://www.instagram.com/tiredofdointm/ (new tab)
+├── Instagram 2     → https://www.instagram.com/tiredflics/ (new tab)
+└── TikTok          → https://www.tiktok.com/@tiredofdointm (new tab)
+
+📋 Rates            → /rates
+
+📅 Book Now         → /booking
+
+📧 Contact          → /contact
+
+🔐 Sign In          → /login (if not logged in)
+👤 My Profile       → /profile (if logged in)
+   └── Sign Out     (under profile)
+
+📊 Dashboard        → /dashboard (ADMIN/STAFF only, hidden for others)
+```
+
+## Menu HTML Structure
+```html
+<button id="menu-trigger" class="menu-trigger" aria-label="Open menu">
+    <span class="menu-icon">
+        <span></span>
+        <span></span>
+        <span></span>
+    </span>
+    <!-- Show when logged in -->
+    <img src="{{user.avatar}}" alt="" class="menu-avatar" />
+    <span class="menu-username">{{user.username}}</span>
+</button>
+
+<nav id="menu-overlay" class="menu-overlay" aria-hidden="true">
+    <button class="menu-close" aria-label="Close menu">&times;</button>
+    
+    <div class="menu-content">
+        <ul class="menu-list">
+            <!-- Gallery with submenu -->
+            <li class="menu-item has-submenu">
+                <span class="menu-label">Gallery</span>
+                <ul class="menu-submenu">
+                    <li><a href="/gallery/personal">Personal</a></li>
+                    <li><a href="/gallery/product">Product</a></li>
+                    <li><a href="/gallery/group">Group</a></li>
+                    <li><a href="/gallery/event">Event</a></li>
+                    <li><a href="/gallery/misc">Misc</a></li>
+                </ul>
+            </li>
+            
+            <!-- Socials with submenu -->
+            <li class="menu-item has-submenu">
+                <span class="menu-label">Socials</span>
+                <ul class="menu-submenu">
+                    <li><a href="https://www.instagram.com/tiredofdointm/" target="_blank" rel="noopener">Instagram</a></li>
+                    <li><a href="https://www.instagram.com/tiredflics/" target="_blank" rel="noopener">Instagram (Flics)</a></li>
+                    <li><a href="https://www.tiktok.com/@tiredofdointm" target="_blank" rel="noopener">TikTok</a></li>
+                </ul>
+            </li>
+            
+            <li class="menu-item">
+                <a href="/rates" class="menu-link">Rates</a>
+            </li>
+            
+            <li class="menu-item">
+                <a href="/booking" class="menu-link menu-link-primary">Book Now</a>
+            </li>
+            
+            <li class="menu-item">
+                <a href="/contact" class="menu-link">Contact</a>
+            </li>
+            
+            <!-- Auth section -->
+            <li class="menu-divider"></li>
+            
+            <? php if ($user): ?>
+                <li class="menu-item">
+                    <a href="/profile" class="menu-link">My Profile</a>
+                </li>
+                <? php if ($user->hasPermission('dashboard_access')): ?>
+                    <li class="menu-item">
+                        <a href="/dashboard" class="menu-link">Dashboard</a>
+                    </li>
+                <?php endif; ?>
+                <li class="menu-item">
+                    <button class="menu-link" onclick="logout()">Sign Out</button>
+                </li>
+            <?php else: ?>
+                <li class="menu-item">
+                    <a href="/login" class="menu-link">Sign In</a>
+                </li>
+            <?php endif; ?>
+        </ul>
+    </div>
+</nav>
+```
+
+## Menu CSS
+```css
+/* Menu Trigger Button */
+.menu-trigger {
+    position: fixed;
+    top: var(--space-6);
+    right: var(--space-6);
+    z-index: 100;
+    
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    
+    padding: var(--space-3) var(--space-4);
+    background: var(--bg-glass);
+    backdrop-filter: blur(20px);
+    border: 1px solid var(--border-default);
+    border-radius: var(--radius-full);
+    
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+. menu-trigger:hover {
+    background: var(--bg-hover);
+    border-color: var(--violet-500);
+    box-shadow: var(--glow-violet-subtle);
+}
+
+.menu-icon {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    width: 20px;
+}
+
+.menu-icon span {
+    height: 2px;
+    background: var(--text-primary);
+    border-radius: 2px;
+    transition: all 0.3s ease;
+}
+
+.menu-trigger. active .menu-icon span:nth-child(1) {
+    transform: rotate(45deg) translate(4px, 4px);
+}
+
+.menu-trigger.active .menu-icon span:nth-child(2) {
+    opacity: 0;
+}
+
+.menu-trigger. active .menu-icon span:nth-child(3) {
+    transform: rotate(-45deg) translate(4px, -4px);
+}
+
+.menu-avatar {
+    width: 32px;
+    height: 32px;
+    border-radius:  50%;
+    object-fit: cover;
+    border: 2px solid var(--violet-500);
+}
+
+.menu-username {
+    font-family: var(--font-body);
+    font-size: var(--text-sm);
+    color: var(--text-primary);
+}
+
+/* Menu Overlay */
+. menu-overlay {
+    position:  fixed;
+    inset: 0;
+    z-index: 99;
+    
+    background: var(--bg-base);
+    
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    
+    opacity: 0;
+    visibility: hidden;
+    transition:  all 0.4s var(--ease-out);
+    
+    /* Diagonal clip effect */
+    clip-path:  polygon(100% 0, 100% 0, 100% 100%, 100% 100%);
+}
+
+.menu-overlay.active {
+    opacity: 1;
+    visibility: visible;
+    clip-path: polygon(0 0, 100% 0, 100% 100%, 0 100%);
+}
+
+.menu-close {
+    position: absolute;
+    top: var(--space-6);
+    right: var(--space-6);
+    
+    width: 48px;
+    height: 48px;
+    
+    background:  transparent;
+    border: 2px solid var(--violet-500);
+    border-radius: 50%;
+    
+    font-size: var(--text-2xl);
+    color: var(--violet-500);
+    
+    cursor: pointer;
+    transition: all 0.3s ease;
+    
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.menu-close:hover {
+    background: var(--violet-500);
+    color: white;
+    box-shadow: var(--glow-violet-medium);
+    transform: rotate(90deg);
+}
+
+/* Menu List */
+.menu-list {
+    list-style: none;
+    padding: 0;
+    margin:  0;
+    text-align: center;
+}
+
+.menu-item {
+    margin: var(--space-4) 0;
+    opacity: 0;
+    transform: translateY(20px);
+}
+
+.menu-overlay.active .menu-item {
+    opacity: 1;
+    transform: translateY(0);
+    transition: all 0.4s var(--ease-out);
+}
+
+/* Stagger animation */
+.menu-overlay.active .menu-item:nth-child(1) { transition-delay: 0.1s; }
+.menu-overlay.active .menu-item:nth-child(2) { transition-delay: 0.15s; }
+.menu-overlay.active . 

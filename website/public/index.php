@@ -904,6 +904,116 @@ Router::get('/dashboard/settings', function() {
 }, ['auth', 'admin']);
 
 // =============================================================================
+// STRIPE WEBHOOK
+// =============================================================================
+
+Router::post('/webhook/stripe', function() use ($config) {
+    $payload = file_get_contents('php://input');
+    $sigHeader = $_SERVER['HTTP_STRIPE_SIGNATURE'] ?? '';
+
+    if (empty($sigHeader)) {
+        http_response_code(400);
+        echo 'Missing signature';
+        return;
+    }
+
+    $stripe = new \App\Services\StripeService();
+    $event = $stripe->handleWebhook($payload, $sigHeader);
+
+    if (!$event) {
+        http_response_code(400);
+        echo 'Invalid webhook';
+        return;
+    }
+
+    $result = $stripe->processWebhookEvent($event);
+
+    if ($result['handled']) {
+        http_response_code(200);
+        echo json_encode(['received' => true]);
+    } else {
+        http_response_code(200); // Still return 200 to prevent retries
+        echo json_encode(['received' => true, 'message' => $result['message']]);
+    }
+});
+
+// =============================================================================
+// R2 IMAGE UPLOAD API (Admin only)
+// =============================================================================
+
+Router::post('/api/upload/image', function() {
+    if (!Auth::isStaff()) {
+        Router::json(['error' => 'Unauthorized'], 403);
+        return;
+    }
+
+    if (!isset($_FILES['image']) || $_FILES['image']['error'] !== UPLOAD_ERR_OK) {
+        Router::json(['error' => 'No image uploaded'], 400);
+        return;
+    }
+
+    $file = $_FILES['image'];
+    $galleryId = (int) ($_POST['gallery_id'] ?? 0);
+
+    if (!$galleryId) {
+        Router::json(['error' => 'Gallery ID required'], 400);
+        return;
+    }
+
+    // Validate file type
+    $allowedTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
+    $finfo = finfo_open(FILEINFO_MIME_TYPE);
+    $mimeType = finfo_file($finfo, $file['tmp_name']);
+    finfo_close($finfo);
+
+    if (!in_array($mimeType, $allowedTypes)) {
+        Router::json(['error' => 'Invalid file type'], 400);
+        return;
+    }
+
+    // Max 50MB
+    if ($file['size'] > 50 * 1024 * 1024) {
+        Router::json(['error' => 'File too large (max 50MB)'], 400);
+        return;
+    }
+
+    try {
+        // Create image record
+        $imageId = Database::insert('images', [
+            'gallery_id' => $galleryId,
+            'uploader_id' => Auth::user()['id'],
+            'filename' => $file['name'],
+            'original_filename' => $file['name'],
+            'created_at' => date('Y-m-d H:i:s'),
+        ]);
+
+        // Upload to R2
+        $r2 = new \App\Services\R2Service();
+        $versions = $r2->uploadImage($file['tmp_name'], $galleryId, $imageId);
+
+        // Store version URLs in database
+        foreach ($versions as $type => $data) {
+            Database::insert('image_versions', [
+                'image_id' => $imageId,
+                'type' => $type,
+                'r2_path' => $data['path'],
+                'r2_url' => $data['url'],
+                'file_size' => $data['size'],
+                'created_at' => date('Y-m-d H:i:s'),
+            ]);
+        }
+
+        Router::json([
+            'success' => true,
+            'image_id' => $imageId,
+            'versions' => $versions,
+        ]);
+    } catch (Exception $e) {
+        Router::json(['error' => 'Upload failed: ' . $e->getMessage()], 500);
+    }
+}, ['auth', 'admin']);
+
+// =============================================================================
 // DISPATCH
 // =============================================================================
 

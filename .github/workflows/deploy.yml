@@ -1,32 +1,68 @@
-name: "TiredOfDoinTM - Deploy to VPS (manual)"
+name: "TiredOfDoinTM - Deploy to VPS"
 
 on:
+  # Manual trigger with branch selection
   workflow_dispatch:
     inputs:
       branch:
-        description: 'Branch to deploy'
+        description: 'Branch or tag to deploy'
         required: false
         default: main
+        type: string
+      
+  # Auto-deploy on push to main (optional - uncomment to enable)
+  # push:
+  #   branches:
+  #     - main
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
+    environment: production
+    
     steps:
       - name: Checkout repo
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
-      - name: Prepare SSH key
-        uses: webfactory/ssh-agent@v0.8.1
+      - name: Setup SSH
+        uses: webfactory/ssh-agent@v0.9.0
         with:
           ssh-private-key: ${{ secrets.VPS_SSH_KEY }}
 
-      - name: Copy deploy script to server and run
+      - name: Add VPS to known hosts
+        run: |
+          mkdir -p ~/.ssh
+          ssh-keyscan -H ${{ secrets.VPS_HOST }} >> ~/.ssh/known_hosts
+
+      - name: Deploy to VPS
         env:
           VPS_USER: ${{ secrets.VPS_USER }}
           VPS_HOST: ${{ secrets.VPS_HOST }}
-          BRANCH: ${{ github.event.inputs.branch || github.ref_name || 'main' }}
+          BRANCH: ${{ github.event.inputs.branch || 'main' }}
         run: |
-          scp -o StrictHostKeyChecking=no vps/deploy_pull.sh $VPS_USER@$VPS_HOST:/home/$VPS_USER/tiredprod_deploy.sh
-          ssh -o StrictHostKeyChecking=no $VPS_USER@$VPS_HOST "bash /home/$VPS_USER/tiredprod_deploy.sh $BRANCH"
+          echo "🚀 Deploying branch: $BRANCH to $VPS_HOST"
+          
+          # Copy latest deploy script
+          scp vps/deploy_pull.sh $VPS_USER@$VPS_HOST:/home/$VPS_USER/deploy.sh
+          
+          # Run deployment
+          ssh $VPS_USER@$VPS_HOST "chmod +x /home/$VPS_USER/deploy.sh && /home/$VPS_USER/deploy.sh $BRANCH"
+
+      - name: Verify deployment
+        env:
+          VPS_USER: ${{ secrets.VPS_USER }}
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+        run: |
+          echo "✅ Verifying deployment..."
+          ssh $VPS_USER@$VPS_HOST "cd /home/$VPS_USER/tiredprod && git log -1 --oneline"
+
+      - name: Deployment summary
+        run: |
+          echo "## 🎉 Deployment Complete" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- **Branch:** ${{ github.event.inputs.branch || 'main' }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Commit:** ${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Deployed by:** ${{ github.actor }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Time:** $(date -u)" >> $GITHUB_STEP_SUMMARY

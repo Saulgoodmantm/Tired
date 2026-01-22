@@ -1,0 +1,64 @@
+# 🚨 TIREDOFDOINTM — COMPLETE MASTER BUILD SPECIFICATION V9 🚨
+# Production-Ready Photography Business Platform
+# Target:  Claude Opus 4. 5 / Copilot IDE
+# Environment: Ubuntu VPS (DigitalOcean Droplet)
+# Local Development: C:\Development\tiredprod
+
+---
+
+# ═══════════════════════════════════════════════════════════════════
+# 📋 SECTION 1: DOCUMENT PURPOSE & INSTRUCTIONS
+# ═══════════════════════════════════════════════════════════════════
+
+## What This Document Is
+This is the **COMPLETE, AUTHORITATIVE SPECIFICATION** for building the TiredOfDoinTM 
+photography business platform. It consolidates ALL feature requests from multiple 
+conversation sessions into a single, implementation-ready document.
+
+## Who Should Use This
+- Claude Opus 4.5 (primary target)
+- GitHub Copilot agents
+- Full-stack developers
+- DevOps engineers
+
+## Implementation Rules
+1. Read the ENTIRE document before starting
+2. Implement features IN ORDER
+3. Complete ALL validation checkpoints before proceeding
+4. Do NOT skip, simplify, or assume anything
+5. Every feature listed MUST be implemented
+6. Every page MUST load and work
+7. Every animation MUST run
+8. EVERYTHING MUST be production-ready
+
+## What Makes This Different
+- NO ASSUMPTIONS — Everything is explicitly stated
+- NO PLACEHOLDERS — Every feature must work
+- NO PARTIAL IMPLEMENTATIONS — Complete or nothing
+- EDGE CASES COVERED — Error handling specified
+- LOGIC EXPLAINED — Why each feature exists
+- VPS READY — Tested before delivery
+
+---
+
+# ═══════════════════════════════════════════════════════════════════
+# 🎯 SECTION 2: PROJECT IDENTITY & BRAND
+# ═══════════════════════════════════════════════════════════════════
+
+## Brand Information
+| Property | Value |
+|----------|-------|
+| **Name** | `TiredOfDoinTM` (ONE WORD, stylized with capital T and M) |
+| **Domain** | `tiredofdointm.com` |
+| **Tagline** | Professional photography services |
+| **Business Type** | Photography studio, model management, creative agency |
+| **Contact Email** | `contact@tiredofdointm. com` |
+
+## Social Media
+| Platform | Handle/URL |
+|----------|------------|
+| Instagram (Primary) | `@tiredofdointm` → https://www.instagram.com/tiredofdointm/ |
+| Instagram (Secondary) | `@tiredflics` → https://www.instagram.com/tiredflics/ |
+| TikTok | `@tiredofdointm` → https://www.tiktok.com/@tiredofdointm |
+
+## Profile Picture URL
