@@ -241,6 +241,20 @@ Router::get('/contact', function() {
     ]);
 });
 
+// Privacy Policy (required for Google OAuth)
+Router::get('/privacy', function() {
+    View::display('pages/privacy', [
+        'pageTitle' => 'Privacy Policy - TiredOfDoinTM',
+    ]);
+});
+
+// Terms of Service (required for Google OAuth)
+Router::get('/terms', function() {
+    View::display('pages/terms', [
+        'pageTitle' => 'Terms of Service - TiredOfDoinTM',
+    ]);
+});
+
 // Calendar (public availability)
 Router::get('/calendar', function() {
     // Get booked dates
