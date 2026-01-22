@@ -132,16 +132,60 @@ else
 fi
 
 # =============================================================================
+# GENERATE SSH DEPLOY KEY (for private repos)
+# =============================================================================
+log_info "Setting up SSH deploy key for private repository access..."
+
+DEPLOY_KEY="/home/${DEPLOY_USER}/.ssh/deploy_key"
+if [ ! -f "${DEPLOY_KEY}" ]; then
+    sudo -u ${DEPLOY_USER} mkdir -p /home/${DEPLOY_USER}/.ssh
+    sudo -u ${DEPLOY_USER} ssh-keygen -t ed25519 -f ${DEPLOY_KEY} -N "" -C "deploy@${DOMAIN}"
+    
+    # Configure SSH to use deploy key for GitHub
+    cat > /home/${DEPLOY_USER}/.ssh/config << 'SSH_CONFIG'
+Host github.com
+    HostName github.com
+    User git
+    IdentityFile ~/.ssh/deploy_key
+    IdentitiesOnly yes
+SSH_CONFIG
+    chown ${DEPLOY_USER}:${DEPLOY_USER} /home/${DEPLOY_USER}/.ssh/config
+    chmod 600 /home/${DEPLOY_USER}/.ssh/config
+    
+    echo ""
+    log_warn "=============================================="
+    log_warn "IMPORTANT: Add this deploy key to your GitHub repo!"
+    log_warn "Go to: https://github.com/Saulgoodmantm/tired/settings/keys"
+    log_warn "Click 'Add deploy key' and paste this:"
+    echo ""
+    cat ${DEPLOY_KEY}.pub
+    echo ""
+    log_warn "=============================================="
+    echo ""
+else
+    log_info "Deploy key already exists"
+fi
+
+# Add GitHub to known hosts
+sudo -u ${DEPLOY_USER} ssh-keyscan -t ed25519 github.com >> /home/${DEPLOY_USER}/.ssh/known_hosts 2>/dev/null
+
+# =============================================================================
 # SETUP APPLICATION DIRECTORY
 # =============================================================================
 log_info "Setting up application directory..."
 mkdir -p ${APP_DIR}
 chown -R ${DEPLOY_USER}:${DEPLOY_USER} ${APP_DIR}
 
-# Clone repository if not exists
+# Clone repository if not exists (using SSH for private repo)
+REPO_SSH="git@github.com:Saulgoodmantm/tired.git"
 if [ ! -d "${APP_DIR}/.git" ]; then
-    log_info "Cloning repository..."
-    sudo -u ${DEPLOY_USER} git clone ${REPO_URL} ${APP_DIR}
+    log_info "Cloning private repository via SSH..."
+    sudo -u ${DEPLOY_USER} git clone ${REPO_SSH} ${APP_DIR} || {
+        log_error "Failed to clone. Make sure you added the deploy key to GitHub!"
+        log_info "Deploy key public key:"
+        cat ${DEPLOY_KEY}.pub
+        exit 1
+    }
 else
     log_info "Repository already cloned, pulling latest..."
     cd ${APP_DIR}
@@ -322,15 +366,35 @@ log_info "=============================================="
 log_info "VPS Setup Complete!"
 log_info "=============================================="
 log_info ""
-log_info "Next steps:"
-log_info "1. Point your domain DNS to this server's IP"
-log_info "2. Edit ${ENV_FILE} with your credentials"
-log_info "3. Run: sudo certbot --nginx -d ${DOMAIN} -d www.${DOMAIN}"
-log_info "4. Test your site at http://${DOMAIN}"
+log_info "🔑 DEPLOY KEY (add this to GitHub):"
+log_info "   Go to: https://github.com/Saulgoodmantm/tired/settings/keys"
+log_info "   Click 'Add deploy key', check 'Allow write access', and paste:"
+echo ""
+cat /home/${DEPLOY_USER}/.ssh/deploy_key.pub
+echo ""
 log_info ""
-log_info "To deploy updates, SSH as '${DEPLOY_USER}' and run:"
-log_info "  ./deploy.sh main        # Deploy main branch"
-log_info "  ./deploy.sh feature/xyz # Deploy specific branch"
+log_info "📋 NEXT STEPS:"
+log_info "1. Add the deploy key above to GitHub (Settings → Deploy keys)"
+log_info "2. Point your domain DNS to this server's IP: $(curl -s ifconfig.me 2>/dev/null || echo 'YOUR_IP')"
+log_info "3. Edit ${ENV_FILE} with your credentials:"
+log_info "   nano ${ENV_FILE}"
+log_info "4. Run database migrations:"
+log_info "   cd ${APP_DIR} && php website/migrate.php"
+log_info "5. Enable SSL:"
+log_info "   sudo certbot --nginx -d ${DOMAIN} -d www.${DOMAIN}"
 log_info ""
-log_info "Or use GitHub Actions for automated deployment"
+log_info "🚀 DEPLOYMENT OPTIONS:"
+log_info "   • Web Panel: https://${DOMAIN}/dashboard/server (after setup)"
+log_info "   • Console:   ./deploy.sh main"
+log_info "   • Webhook:   Configure at GitHub → Settings → Webhooks"
+log_info "     URL: https://${DOMAIN}/webhook/github"
+log_info ""
+log_info "🔗 GITHUB WEBHOOK SETUP:"
+log_info "   1. Go to: https://github.com/Saulgoodmantm/tired/settings/hooks"
+log_info "   2. Click 'Add webhook'"
+log_info "   3. Payload URL: https://${DOMAIN}/webhook/github"
+log_info "   4. Content type: application/json"
+log_info "   5. Secret: (set in your .env file as ENCRYPTION_KEY, first 32 chars)"
+log_info "   6. Events: Just the push event"
+log_info ""
 log_info "=============================================="

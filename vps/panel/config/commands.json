@@ -1,0 +1,191 @@
+{
+  "categories": {
+    "services": {
+      "name": "Services",
+      "icon": "server",
+      "commands": [
+        {
+          "id": "restart-nginx",
+          "name": "Restart Nginx",
+          "command": "sudo systemctl restart nginx",
+          "description": "Restart the Nginx web server",
+          "dangerous": false
+        },
+        {
+          "id": "restart-php",
+          "name": "Restart PHP-FPM",
+          "command": "sudo systemctl restart php8.2-fpm",
+          "description": "Restart PHP-FPM service",
+          "dangerous": false
+        },
+        {
+          "id": "status-nginx",
+          "name": "Nginx Status",
+          "command": "systemctl status nginx --no-pager",
+          "description": "Check Nginx service status",
+          "dangerous": false
+        },
+        {
+          "id": "status-php",
+          "name": "PHP-FPM Status",
+          "command": "systemctl status php8.2-fpm --no-pager",
+          "description": "Check PHP-FPM service status",
+          "dangerous": false
+        },
+        {
+          "id": "reload-nginx",
+          "name": "Reload Nginx Config",
+          "command": "sudo nginx -t && sudo systemctl reload nginx",
+          "description": "Test and reload Nginx configuration",
+          "dangerous": false
+        }
+      ]
+    },
+    "system": {
+      "name": "System",
+      "icon": "cpu",
+      "commands": [
+        {
+          "id": "disk-usage",
+          "name": "Disk Usage",
+          "command": "df -h",
+          "description": "Show disk space usage",
+          "dangerous": false
+        },
+        {
+          "id": "memory-usage",
+          "name": "Memory Usage",
+          "command": "free -h",
+          "description": "Show memory usage",
+          "dangerous": false
+        },
+        {
+          "id": "uptime",
+          "name": "System Uptime",
+          "command": "uptime",
+          "description": "Show system uptime and load",
+          "dangerous": false
+        },
+        {
+          "id": "top-processes",
+          "name": "Top Processes",
+          "command": "ps aux --sort=-%mem | head -10",
+          "description": "Show top 10 memory-consuming processes",
+          "dangerous": false
+        }
+      ]
+    },
+    "logs": {
+      "name": "Logs",
+      "icon": "file-text",
+      "commands": [
+        {
+          "id": "nginx-error-log",
+          "name": "Nginx Error Log",
+          "command": "sudo tail -50 /var/log/nginx/error.log",
+          "description": "Show last 50 lines of Nginx error log",
+          "dangerous": false
+        },
+        {
+          "id": "nginx-access-log",
+          "name": "Nginx Access Log",
+          "command": "sudo tail -50 /var/log/nginx/access.log",
+          "description": "Show last 50 lines of Nginx access log",
+          "dangerous": false
+        },
+        {
+          "id": "php-fpm-log",
+          "name": "PHP-FPM Log",
+          "command": "sudo tail -50 /var/log/php8.2-fpm.log",
+          "description": "Show last 50 lines of PHP-FPM log",
+          "dangerous": false
+        },
+        {
+          "id": "auth-log",
+          "name": "Auth Log",
+          "command": "sudo tail -50 /var/log/auth.log",
+          "description": "Show last 50 lines of authentication log",
+          "dangerous": false
+        }
+      ]
+    },
+    "ssl": {
+      "name": "SSL",
+      "icon": "lock",
+      "commands": [
+        {
+          "id": "ssl-status",
+          "name": "SSL Certificate Status",
+          "command": "sudo certbot certificates",
+          "description": "Show SSL certificate status",
+          "dangerous": false
+        },
+        {
+          "id": "ssl-renew-dry",
+          "name": "Test SSL Renewal",
+          "command": "sudo certbot renew --dry-run",
+          "description": "Test SSL certificate renewal",
+          "dangerous": false
+        },
+        {
+          "id": "ssl-renew",
+          "name": "Renew SSL Certificates",
+          "command": "sudo certbot renew",
+          "description": "Renew SSL certificates",
+          "dangerous": false
+        }
+      ]
+    },
+    "git": {
+      "name": "Git",
+      "icon": "git-branch",
+      "commands": [
+        {
+          "id": "git-status",
+          "name": "Git Status",
+          "command": "cd {site_path} && git status",
+          "description": "Show git status for a site",
+          "dangerous": false,
+          "requires_site": true
+        },
+        {
+          "id": "git-pull",
+          "name": "Git Pull",
+          "command": "cd {site_path} && git fetch --all && git reset --hard origin/{branch}",
+          "description": "Pull latest changes from remote",
+          "dangerous": false,
+          "requires_site": true
+        },
+        {
+          "id": "git-log",
+          "name": "Recent Commits",
+          "command": "cd {site_path} && git log --oneline -10",
+          "description": "Show last 10 commits",
+          "dangerous": false,
+          "requires_site": true
+        }
+      ]
+    },
+    "firewall": {
+      "name": "Firewall",
+      "icon": "shield",
+      "commands": [
+        {
+          "id": "ufw-status",
+          "name": "Firewall Status",
+          "command": "sudo ufw status verbose",
+          "description": "Show UFW firewall status",
+          "dangerous": false
+        },
+        {
+          "id": "fail2ban-status",
+          "name": "Fail2ban Status",
+          "command": "sudo fail2ban-client status",
+          "description": "Show fail2ban status",
+          "dangerous": false
+        }
+      ]
+    }
+  },
+  "custom": []
+}

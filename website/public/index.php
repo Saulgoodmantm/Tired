@@ -1014,6 +1014,146 @@ Router::post('/api/upload/image', function() {
 }, ['auth', 'admin']);
 
 // =============================================================================
+// GITHUB WEBHOOK (Auto-deploy from private repo)
+// =============================================================================
+
+Router::post('/webhook/github', function() use ($config) {
+    $payload = file_get_contents('php://input');
+    $signature = $_SERVER['HTTP_X_HUB_SIGNATURE_256'] ?? '';
+
+    if (empty($signature)) {
+        http_response_code(400);
+        echo json_encode(['error' => 'Missing signature']);
+        return;
+    }
+
+    // Use encryption key as webhook secret
+    $secret = substr(hash('sha256', $config['security']['encryption_key'] ?? 'default'), 0, 32);
+
+    $server = new \App\Services\ServerService();
+    $result = $server->handleGitHubWebhook($payload, $signature, $secret);
+
+    http_response_code($result['success'] ? 200 : 400);
+    echo json_encode($result);
+});
+
+// =============================================================================
+// SERVER MANAGEMENT API (Admin only)
+// =============================================================================
+
+// Dashboard - Server Management
+Router::get('/dashboard/server', function() {
+    $server = new \App\Services\ServerService();
+
+    View::display('dashboard/server', [
+        'pageTitle' => 'Server Management',
+        'activePage' => 'server',
+        'currentBranch' => $server->getCurrentBranch(),
+        'lastDeploy' => $server->getLastDeploy()['timestamp'] ?? 'Never',
+        'branches' => $server->getBranches(),
+        'domains' => $server->getDomains(),
+    ], 'dashboard');
+}, ['auth', 'admin']);
+
+// Server Status API
+Router::get('/api/server/status', function() {
+    if (!Auth::isAdmin()) {
+        Router::json(['error' => 'Unauthorized'], 403);
+        return;
+    }
+
+    $server = new \App\Services\ServerService();
+    Router::json($server->getServerStatus());
+}, ['auth']);
+
+// Deploy API
+Router::post('/api/server/deploy', function() {
+    if (!Auth::isAdmin()) {
+        Router::json(['error' => 'Unauthorized'], 403);
+        return;
+    }
+
+    $data = json_decode(file_get_contents('php://input'), true);
+    $branch = $data['branch'] ?? 'main';
+
+    $server = new \App\Services\ServerService();
+    $result = $server->deploy($branch);
+
+    Router::json($result);
+}, ['auth', 'csrf']);
+
+// Domains API
+Router::get('/api/server/domains', function() {
+    if (!Auth::isAdmin()) {
+        Router::json(['error' => 'Unauthorized'], 403);
+        return;
+    }
+
+    $server = new \App\Services\ServerService();
+    Router::json(['domains' => $server->getDomains()]);
+}, ['auth']);
+
+Router::post('/api/server/domains', function() {
+    if (!Auth::isAdmin()) {
+        Router::json(['error' => 'Unauthorized'], 403);
+        return;
+    }
+
+    $data = json_decode(file_get_contents('php://input'), true);
+    $domain = $data['domain'] ?? '';
+
+    $server = new \App\Services\ServerService();
+    $result = $server->addDomain($domain);
+
+    Router::json($result);
+}, ['auth', 'csrf']);
+
+Router::delete('/api/server/domains', function() {
+    if (!Auth::isAdmin()) {
+        Router::json(['error' => 'Unauthorized'], 403);
+        return;
+    }
+
+    $data = json_decode(file_get_contents('php://input'), true);
+    $domain = $data['domain'] ?? '';
+
+    $server = new \App\Services\ServerService();
+    $result = $server->removeDomain($domain);
+
+    Router::json($result);
+}, ['auth', 'csrf']);
+
+// SSL API
+Router::post('/api/server/ssl', function() {
+    if (!Auth::isAdmin()) {
+        Router::json(['error' => 'Unauthorized'], 403);
+        return;
+    }
+
+    $data = json_decode(file_get_contents('php://input'), true);
+    $domain = $data['domain'] ?? '';
+
+    $server = new \App\Services\ServerService();
+    $result = $server->enableSSL($domain);
+
+    Router::json($result);
+}, ['auth', 'csrf']);
+
+// Logs API
+Router::get('/api/server/logs', function() {
+    if (!Auth::isAdmin()) {
+        Router::json(['error' => 'Unauthorized'], 403);
+        return;
+    }
+
+    $type = $_GET['type'] ?? 'deploy';
+    $lines = (int) ($_GET['lines'] ?? 100);
+
+    $server = new \App\Services\ServerService();
+    Router::json(['content' => $server->getLogs($type, $lines)]);
+}, ['auth']);
+
+// =============================================================================
 // DISPATCH
 // =============================================================================
 

@@ -1,0 +1,22 @@
+{
+  "sites": [
+    {
+      "id": "tiredofdointm",
+      "name": "TiredOfDoinTM",
+      "domain": "tiredofdointm.com",
+      "path": "/home/deploy/TiredProductions/tiredofdointm.com",
+      "repo": "https://github.com/Saulgoodmantm/tired.git",
+      "branch": "main",
+      "php_version": "8.2",
+      "nginx_config": "/etc/nginx/sites-available/tiredofdointm.com",
+      "ssl_enabled": true,
+      "created_at": "2024-01-01T00:00:00Z",
+      "updated_at": "2024-01-01T00:00:00Z"
+    }
+  ],
+  "defaults": {
+    "php_version": "8.2",
+    "ssl_enabled": true,
+    "auto_deploy": false
+  }
+}
