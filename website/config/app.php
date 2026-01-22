@@ -90,10 +90,10 @@ return [
         'connection' => env('DB_CONNECTION', 'pgsql'),
         'host' => env('DB_HOST', 'localhost'),
         'port' => env('DB_PORT', '5432'),
-        'name' => env('DB_NAME', 'tiredofdointm'),
-        'user' => env('DB_USER', 'postgres'),
-        'pass' => env('DB_PASS', ''),
-        'ssl' => env('DB_SSL', 'require'),
+        'name' => env('DB_DATABASE', env('DB_NAME', 'tiredofdointm')),
+        'user' => env('DB_USERNAME', env('DB_USER', 'postgres')),
+        'pass' => env('DB_PASSWORD', env('DB_PASS', '')),
+        'ssl' => env('DB_SSLMODE', env('DB_SSL', 'require')),
     ],
 
     // -------------------------------------------------------------------------

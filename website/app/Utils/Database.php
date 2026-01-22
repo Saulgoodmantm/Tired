@@ -50,9 +50,18 @@ class Database
                     ];
                     
                     // Enable SSL for DigitalOcean managed MySQL
-                    if (!empty(self::$config['ssl'])) {
-                        $options[PDO::MYSQL_ATTR_SSL_VERIFY_SERVER_CERT] = false;
-                        $options[PDO::MYSQL_ATTR_SSL_CA] = true;
+                    if (!empty(self::$config['ssl']) && self::$config['ssl'] !== 'disable') {
+                        // Use constant values directly if not defined
+                        if (defined('PDO::MYSQL_ATTR_SSL_VERIFY_SERVER_CERT')) {
+                            $options[PDO::MYSQL_ATTR_SSL_VERIFY_SERVER_CERT] = false;
+                        } else {
+                            $options[1014] = false; // MYSQL_ATTR_SSL_VERIFY_SERVER_CERT = 1014
+                        }
+                        if (defined('PDO::MYSQL_ATTR_SSL_CA')) {
+                            $options[PDO::MYSQL_ATTR_SSL_CA] = '/etc/ssl/certs/ca-certificates.crt';
+                        } else {
+                            $options[1009] = '/etc/ssl/certs/ca-certificates.crt'; // MYSQL_ATTR_SSL_CA = 1009
+                        }
                     }
                     
                     self::$instance = new PDO($dsn, self::$config['user'], self::$config['pass'], $options);
