@@ -8,7 +8,6 @@
  * =============================================================================
  */
 
-require_once __DIR__ . '/config/app.php';
 require_once __DIR__ . '/app/Utils/Database.php';
 
 use App\Utils\Database;
@@ -21,17 +20,31 @@ echo "==================================\n\n";
 try {
     // Initialize database
     Database::init($config['database']);
-
+    
+    $driver = $config['database']['connection'] ?? 'pgsql';
+    echo "Database type: " . strtoupper($driver) . "\n";
     echo "✓ Connected to database\n\n";
 
-    // Create migrations tracking table
-    Database::execute("
-        CREATE TABLE IF NOT EXISTS migrations (
-            id SERIAL PRIMARY KEY,
-            name VARCHAR(255) UNIQUE NOT NULL,
-            executed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-        )
-    ");
+    // Create migrations tracking table (syntax differs by DB)
+    if ($driver === 'mysql') {
+        Database::connect()->exec("
+            CREATE TABLE IF NOT EXISTS migrations (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                name VARCHAR(255) UNIQUE NOT NULL,
+                executed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+        ");
+        $migrationsDir = __DIR__ . '/migrations/mysql';
+    } else {
+        Database::connect()->exec("
+            CREATE TABLE IF NOT EXISTS migrations (
+                id SERIAL PRIMARY KEY,
+                name VARCHAR(255) UNIQUE NOT NULL,
+                executed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        ");
+        $migrationsDir = __DIR__ . '/migrations';
+    }
 
     // Get executed migrations
     $executed = [];
@@ -45,7 +58,6 @@ try {
     }
 
     // Find migration files
-    $migrationsDir = __DIR__ . '/migrations';
     $files = glob($migrationsDir . '/*.sql');
     sort($files);
 

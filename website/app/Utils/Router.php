@@ -49,6 +49,30 @@ class Router
     }
 
     /**
+     * Register a PUT route
+     */
+    public static function put(string $path, callable $handler, array $middleware = []): void
+    {
+        self::addRoute('PUT', $path, $handler, $middleware);
+    }
+
+    /**
+     * Register a DELETE route
+     */
+    public static function delete(string $path, callable $handler, array $middleware = []): void
+    {
+        self::addRoute('DELETE', $path, $handler, $middleware);
+    }
+
+    /**
+     * Register a PATCH route
+     */
+    public static function patch(string $path, callable $handler, array $middleware = []): void
+    {
+        self::addRoute('PATCH', $path, $handler, $middleware);
+    }
+
+    /**
      * Add route to registry
      */
     private static function addRoute(string $method, string $path, callable $handler, array $middleware): void

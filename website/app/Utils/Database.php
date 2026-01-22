@@ -32,19 +32,46 @@ class Database
     {
         if (self::$instance === null) {
             try {
-                $dsn = sprintf(
-                    "pgsql:host=%s;port=%s;dbname=%s;sslmode=%s",
-                    self::$config['host'],
-                    self::$config['port'],
-                    self::$config['name'],
-                    self::$config['ssl'] ?? 'require'
-                );
+                $driver = self::$config['connection'] ?? 'pgsql';
+                
+                if ($driver === 'mysql') {
+                    // MySQL connection
+                    $dsn = sprintf(
+                        "mysql:host=%s;port=%s;dbname=%s;charset=utf8mb4",
+                        self::$config['host'],
+                        self::$config['port'],
+                        self::$config['name']
+                    );
+                    
+                    $options = [
+                        PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
+                        PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
+                        PDO::ATTR_EMULATE_PREPARES => false,
+                    ];
+                    
+                    // Enable SSL for DigitalOcean managed MySQL
+                    if (!empty(self::$config['ssl'])) {
+                        $options[PDO::MYSQL_ATTR_SSL_VERIFY_SERVER_CERT] = false;
+                        $options[PDO::MYSQL_ATTR_SSL_CA] = true;
+                    }
+                    
+                    self::$instance = new PDO($dsn, self::$config['user'], self::$config['pass'], $options);
+                } else {
+                    // PostgreSQL connection
+                    $dsn = sprintf(
+                        "pgsql:host=%s;port=%s;dbname=%s;sslmode=%s",
+                        self::$config['host'],
+                        self::$config['port'],
+                        self::$config['name'],
+                        self::$config['ssl'] ?? 'require'
+                    );
 
-                self::$instance = new PDO($dsn, self::$config['user'], self::$config['pass'], [
-                    PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
-                    PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
-                    PDO::ATTR_EMULATE_PREPARES => false,
-                ]);
+                    self::$instance = new PDO($dsn, self::$config['user'], self::$config['pass'], [
+                        PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
+                        PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
+                        PDO::ATTR_EMULATE_PREPARES => false,
+                    ]);
+                }
             } catch (PDOException $e) {
                 // In production, log this instead of showing
                 if (($_ENV['APP_DEBUG'] ?? 'false') === 'true') {
@@ -95,12 +122,20 @@ class Database
     {
         $columns = implode(', ', array_keys($data));
         $placeholders = implode(', ', array_fill(0, count($data), '?'));
+        
+        $driver = self::$config['connection'] ?? 'pgsql';
 
-        $sql = "INSERT INTO {$table} ({$columns}) VALUES ({$placeholders}) RETURNING id";
-        $stmt = self::connect()->prepare($sql);
-        $stmt->execute(array_values($data));
-
-        return (int) $stmt->fetchColumn();
+        if ($driver === 'mysql') {
+            $sql = "INSERT INTO {$table} ({$columns}) VALUES ({$placeholders})";
+            $stmt = self::connect()->prepare($sql);
+            $stmt->execute(array_values($data));
+            return (int) self::connect()->lastInsertId();
+        } else {
+            $sql = "INSERT INTO {$table} ({$columns}) VALUES ({$placeholders}) RETURNING id";
+            $stmt = self::connect()->prepare($sql);
+            $stmt->execute(array_values($data));
+            return (int) $stmt->fetchColumn();
+        }
     }
 
     /**
@@ -119,10 +154,26 @@ class Database
 
     /**
      * Execute DELETE
+     * @param string $table Table name
+     * @param string|array $where WHERE clause string OR associative array for simple conditions
+     * @param array $params Parameters for WHERE clause (if $where is string)
      */
-    public static function delete(string $table, string $where, array $params = []): int
+    public static function delete(string $table, string|array $where, array $params = []): int
     {
-        $sql = "DELETE FROM {$table} WHERE {$where}";
+        if (is_array($where)) {
+            // Build WHERE from array: ['id' => 5] becomes "id = ?"
+            $conditions = [];
+            $params = [];
+            foreach ($where as $col => $val) {
+                $conditions[] = "{$col} = ?";
+                $params[] = $val;
+            }
+            $whereStr = implode(' AND ', $conditions);
+        } else {
+            $whereStr = $where;
+        }
+        
+        $sql = "DELETE FROM {$table} WHERE {$whereStr}";
         $stmt = self::connect()->prepare($sql);
         $stmt->execute($params);
 
